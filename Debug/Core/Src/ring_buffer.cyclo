@@ -1,5 +1,0 @@
-../Core/Src/ring_buffer.c:10:17:rb_count	1
-../Core/Src/ring_buffer.c:15:17:rb_space	1
-../Core/Src/ring_buffer.c:20:13:rb_push	2
-../Core/Src/ring_buffer.c:27:17:rb_pop_chunk	4
-../Core/Src/ring_buffer.c:42:12:rb_init	1
