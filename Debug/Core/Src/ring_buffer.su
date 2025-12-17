@@ -1,1 +1,5 @@
-../Core/Src/ring_buffer.c:41:12:rb_init	24	static
+../Core/Src/ring_buffer.c:10:17:rb_count	16	static
+../Core/Src/ring_buffer.c:15:17:rb_space	24	static
+../Core/Src/ring_buffer.c:20:13:rb_push	16	static
+../Core/Src/ring_buffer.c:27:17:rb_pop_chunk	32	static
+../Core/Src/ring_buffer.c:42:12:rb_init	24	static

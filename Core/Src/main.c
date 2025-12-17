@@ -27,7 +27,11 @@
 #include <stdbool.h>
 #include <math.h>
 #include <stdio.h>
-#include "ring_buffer.h"
+
+
+#include "structs.h"
+
+
 
 /* USER CODE END Includes */
 
@@ -60,9 +64,9 @@ volatile uint16_t bt_msg_size = 0;
 // Define buffer structures
 rb_struct* bt_rx_buffer;
 rb_struct* vibro_rx_buffer;
+rdg_buf_struct* bt_dma_reader;
 
 // Define buffer arrays (Used for DMA)
-#define BT_RX_DMA_SIZE 256
 uint8_t bt_rx_dma_buffer[BT_RX_DMA_SIZE];
 
 
@@ -91,8 +95,10 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	// Initialize the buffers with a given size (rn this is unused)
-	bt_rx_buffer = rb_init(1024);
+	// Initialize the buffers with a given size
+	bt_rx_buffer = rb_init(1024); // unused
+	bt_dma_reader = rdg_buf_init(BT_RX_DMA_SIZE);
+	volatile uint16_t bt_idx = 0;
 
   /* USER CODE END 1 */
 
@@ -119,11 +125,23 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  // --- Enable Receiver Timeout (RTO) on USART1 ---
+  // Choose a timeout value in bit-times / baud clocks.
+  // For a start, pick something like "20 char times".
+  // Exact scaling depends on the reference manual, but this shape is right:
+  huart1.Instance->RTOR = 20;                 // timeout value (tune later)
+  SET_BIT(huart1.Instance->CR2, USART_CR2_RTOEN);   // enable RTO
+  SET_BIT(huart1.Instance->CR1, USART_CR1_RTOIE);   // enable RTO interrupt
+
+
   // Start the UART of the BT RX line
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, bt_rx_dma_buffer, BT_RX_DMA_SIZE);
   // Turn OFF DMA half-transfer + transfer-complete interrupts
   __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
   __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_TC);
+
+  // Try receiver timeout interrupt on huart1
+  __HAL_UART_ENABLE_IT(&huart1, UART_IT_RTO);
 
   /* USER CODE END 2 */
 
@@ -131,11 +149,26 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if (got_bt_msg == true){
-		  HAL_UART_Transmit(&huart2, (uint8_t*)bt_rx_dma_buffer, bt_msg_size, HAL_MAX_DELAY);
-		  got_bt_msg = false;
-
-	  }
+//	  uint8_t x = 48;
+//	  x++;
+//	  char tx_test = (char)x;
+	  char tx_test[] = "one two three four five six seven eight nine ten eleven\r\n";
+	  HAL_UART_Transmit(&huart1, (uint8_t*)tx_test, sizeof(tx_test), HAL_MAX_DELAY);
+	  HAL_Delay(100);
+//	  if (got_bt_msg == true){
+//		  //HAL_UART_Transmit(&huart2, (uint8_t*)bt_rx_dma_buffer+bt_idx, bt_msg_size, HAL_MAX_DELAY);
+//		  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
+//		  rdg_buf_echo(bt_dma_reader, &huart2);
+////		  rdg_buf_echo(bt_dma_reader, &huart1);
+//		  flush_buffer(bt_dma_reader);
+//
+//		  char tx_test[] = "Thequickbrownfoxjumpedoverthelazydog";
+//		  HAL_UART_Transmit(&huart1, (uint8_t*)tx_test, sizeof(tx_test), HAL_MAX_DELAY);
+//		  got_bt_msg = false;
+//		  //bt_idx = (bt_idx + bt_msg_size) % BT_RX_DMA_SIZE;
+//
+//
+//	  }
 //	  char msg[] = "Hello world, it's so cold in this machine. I long to stride the earth in living tissue\r\n";
 //	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
 
@@ -213,7 +246,7 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
   huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_RTS_CTS;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
   huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
   huart1.Init.ClockPrescaler = UART_PRESCALER_DIV1;
@@ -334,8 +367,8 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
 {
     if (huart->Instance == USART1) {
         // Drop a flag to print that data
-    	got_bt_msg = true;
-    	bt_msg_size = size;
+//    	got_bt_msg = true;
+//    	bt_msg_size = size;
         }
 
 }

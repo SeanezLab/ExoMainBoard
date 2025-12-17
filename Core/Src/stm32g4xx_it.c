@@ -22,6 +22,7 @@
 #include "stm32g4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "structs.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -56,6 +57,7 @@
 
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_usart1_rx;
+extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -210,6 +212,41 @@ void DMA1_Channel1_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
 
   /* USER CODE END DMA1_Channel1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART1 global interrupt / USART1 wake-up interrupt through EXTI line 25.
+  */
+void USART1_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART1_IRQn 0 */
+	// --- Receiver Timeout handling ---
+	if (__HAL_UART_GET_FLAG(&huart1, UART_FLAG_RTOF) &&
+		__HAL_UART_GET_IT_SOURCE(&huart1, UART_IT_RTO))
+	{
+		// Clear the timeout flag
+		__HAL_UART_CLEAR_FLAG(&huart1, UART_FLAG_RTOF);
+
+		// Get the count of the bytes
+		static uint16_t rem_p = BT_RX_DMA_SIZE;
+
+        uint16_t remaining = __HAL_DMA_GET_COUNTER(huart1.hdmarx);
+        uint16_t received  = (rem_p - remaining) % BT_RX_DMA_SIZE;
+        received = received % BT_RX_DMA_SIZE;
+        rem_p = remaining;
+
+        bt_msg_size = received;
+        got_bt_msg = 1;
+
+		// Optionally stop DMA here; we restart it in main after processing
+		//HAL_UART_DMAStop(&huart1);
+	}
+
+  /* USER CODE END USART1_IRQn 0 */
+  HAL_UART_IRQHandler(&huart1);
+  /* USER CODE BEGIN USART1_IRQn 1 */
+
+  /* USER CODE END USART1_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

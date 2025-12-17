@@ -36,6 +36,7 @@ inline uint16_t rb_pop_chunk(rb_struct* buffer, uint8_t* dst, uint16_t max_len){
 	for (uint16_t i = 0; i < count; i++){
 		dst[i] = buffer->rb_buffer[buffer->rb_tail++ % buffer->buf_size];
 	}
+	return 1;
 }
 
 rb_struct* rb_init(uint16_t size){
