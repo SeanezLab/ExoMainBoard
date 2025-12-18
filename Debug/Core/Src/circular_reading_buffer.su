@@ -1,4 +1,0 @@
-../Core/Src/circular_reading_buffer.c:12:13:dma_to_rdg_buf	32	static
-../Core/Src/circular_reading_buffer.c:41:13:rdg_buf_echo	16	static
-../Core/Src/circular_reading_buffer.c:47:13:flush_buffer	16	static
-../Core/Src/circular_reading_buffer.c:53:17:rdg_buf_init	24	static
