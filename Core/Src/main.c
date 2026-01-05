@@ -30,6 +30,7 @@
 
 
 #include "structs.h"
+#include "crc.h"
 
 
 
