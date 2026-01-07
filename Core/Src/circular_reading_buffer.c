@@ -17,7 +17,7 @@ inline void dma_to_rdg_buf(rdg_buf_struct* rdg_struct, uint8_t* dma_buffer, uint
 		return;
 	}
 
-	// The message traverses the crossover of the circular buffer, split the message into two reads and place into the reading buffer
+	// The message traverses the crossover of the circular buffer, split the message into two reads and places into the reading buffer
 	// then update the dma_head location
 	if (empty_spaces < msg_size){
 		// Transfer the pre-crossover data:
@@ -28,7 +28,7 @@ inline void dma_to_rdg_buf(rdg_buf_struct* rdg_struct, uint8_t* dma_buffer, uint
 		memcpy(rdg_struct->buffer + rdg_struct->tail,dma_buffer+rdg_struct->dma_head, rem_to_copy * sizeof(dma_buffer[0]));
 		rdg_struct->dma_head += rem_to_copy;
 		rdg_struct->tail += rem_to_copy;
-	//
+	// Transder the post-crossover data:
 	} else {
 		memcpy(rdg_struct->buffer, dma_buffer+rdg_struct->dma_head, msg_size * sizeof(dma_buffer[0]));
 		rdg_struct->dma_head += msg_size;

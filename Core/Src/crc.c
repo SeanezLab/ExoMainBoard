@@ -10,18 +10,25 @@
 
 
 // Calculate the total amount of dynamic packet constants
-uint16_t payload_bytes = calc_payload_bytes();
-uint16_t pkt_bytes = (HEADER_BYTES + payload_bytes + CRC_BYTES);
+const uint16_t PAYLOAD_DATA_FIELDS = sizeof(payload_length_key) / sizeof(payload_length_key[0]);
+const uint16_t PAYLOAD_BYTES = calc_payload_bytes();
+const uint16_t PKT_BYTES = (HEADER_BYTES + LEN_FIELD_BYTES + PAYLOAD_BYTES + CRC_BYTES);
+uint8_t compiled_payload[PAYLOAD_BYTES] = {0};
+
+
+// helper function to init the payload data (calculated at runtime). Note, this is clunkier but more generalizable.
+// If you want something a little more readable, we could make the packet constants be compile time constants.
 
 
 // helper function to calculate payload byte length
-
-static uint16_t calc_payload_bytes()
+static uint16_t calc_payload_bytes(void)
 {
-	for (uint8_t i = 0; i < payload_data_fields; i++)
+	uint16_t payload_bytes = 0;
+	for (uint16_t i = 0; i < PAYLOAD_DATA_FIELDS; i++)
 	{
-		pkt_bytes += payload_length_key[i];
+		payload_bytes += payload_length_key[i];
 	}
+	return payload_bytes;
 }
 
 // helper function for implementing CRC packets
@@ -38,18 +45,51 @@ static uint16_t crc16_ccitt(const uint8_t* buf, uint16_t len)
 	}
 	return crc;
 }
+// Helper function to compile data from different memory locations into one contiguous source for sending
+void compile_data_sources(uint8_t input_count, ...)
+{
+	va_list args;
+	va_start(args, input_count);
+	uint16_t write_idx = 0;
 
+	// Check the input argument number. NOTE, IT IS IMPORTANT THAT YOU PASS AS MANY ARGUMENTS AS THERE ARE DATAFIELDS!
+	// Otherwise, you're reading random memory
+	if (input_count != PAYLOAD_DATA_FIELDS)
+	{
+		va_end(args);
+		return; // Don't change the payload array. Echoing the same data will be the error state.
+	}
+
+	for (uint16_t i = 0; i < PAYLOAD_DATA_FIELDS; i++)
+	{
+		uint8_t* src = va_arg(args, uint8_t*);
+		uint16_t len = payload_length_key[i];
+		// Check for null pointer
+		if (src == NULL)
+		{
+			va_end(args);
+			return;
+		}
+		// Check bounds
+		if (write_idx + len > PAYLOAD_BYTES)
+		{
+			va_end(args);
+			return;
+		}
+		memcpy(&compiled_payload[write_idx], src, len);
+		write_idx += payload_length_key[i];
+	}
+	va_end(args);
+	return;
+}
 
 // Package data and send over UART
 // Packet the predefined data payload (Non-generic)
-static void crc_uart_send_data(const float* src,
-		uint16_t* payload_length_key,
-		uint16_t payload_data_fields,
+static void crc_uart_send_data(const uint8_t* src,
 		UART_HandleTypeDef* huart)
 {
 
-
-	uint8_t pkt[PKT_BYTES];
+	uint8_t pkt[pkt_bytes];
 
 	// 1. Header (preamble)
 	pkt[0] = 0x55;
@@ -59,27 +99,28 @@ static void crc_uart_send_data(const float* src,
     pkt[2] = (uint8_t)(PAYLOAD_BYTES & 0xFF);        // LSB
     pkt[3] = (uint8_t)((PAYLOAD_BYTES >> 8) & 0xFF); // MSB
 
-    // 3. Build the payload: accel_data (float), trig_data (uint8_t), state_data, fft_data
-    size_t write_index = 4; // Create a write index, starting at 4
+    // 3. Build the payload: Iterate across the payload length key.
     // Check the size of the input data to ensure correctness
-    if (accel_size + trig_size + state_size + fft_size == PAYLOAD_BYTES)
-    {
-		memcpy(&pkt[write_index], accel_data, accel_size);
-		write_index += accel_size;
-
-		memcpy(&pkt[write_index], trig_data, trig_size);
-		write_index += trig_size;
-
-		memcpy(&pkt[write_index], state_data, state_size);
-		write_index += state_size;
-
-		memcpy(&pkt[write_index], fft_data, fft_size);
-		write_index += fft_size;
-    } else
-    {
-    	uint8_t error_array[PAYLOAD_BYTES] = {0};
-    	memcpy(&pkt[write_index], error_array, (size_t)PAYLOAD_BYTES);
-    }
+//    for (uint8_t i = 0; i <)
+//
+//    if (accel_size + trig_size + state_size + fft_size == PAYLOAD_BYTES)
+//    {
+//		memcpy(&pkt[write_index], accel_data, accel_size);
+//		write_index += accel_size;
+//
+//		memcpy(&pkt[write_index], trig_data, trig_size);
+//		write_index += trig_size;
+//
+//		memcpy(&pkt[write_index], state_data, state_size);
+//		write_index += state_size;
+//
+//		memcpy(&pkt[write_index], fft_data, fft_size);
+//		write_index += fft_size;
+//    } else
+//    {
+//    	uint8_t error_array[PAYLOAD_BYTES] = {0};
+//    	memcpy(&pkt[write_index], error_array, (size_t)PAYLOAD_BYTES);
+//    }
 
 
     // 4. CRC over length + payload
