@@ -8,28 +8,33 @@
 
 #include "crc.h"
 
+// Fill in Below for each new protocol ///////////////////////////////////////////////////////////////////////
+char *payload_entries[] = {"vibro_z_axis", "vibro_gpio","vibro_fft","vibro_state",\
+						"exo_busy","exo_fsm","exp_debug",\
+						"m1_pos","m1_vel","m1_accel","m1_ic","m1_tau","m1_kd","m1_ki",\
+						"m2_pos","m2_vel","m2_accel","m2_ic","m2_tau","m2_kd","m2_ki"};
 
-// Calculate the total amount of dynamic packet constants
-const uint16_t PAYLOAD_DATA_FIELDS = sizeof(payload_length_key) / sizeof(payload_length_key[0]);
-const uint16_t PAYLOAD_BYTES = calc_payload_bytes();
-const uint16_t PKT_BYTES = (HEADER_BYTES + LEN_FIELD_BYTES + PAYLOAD_BYTES + CRC_BYTES);
+// Length of each entry, in bytes
+uint16_t payload_length_key[] = {100, 50, 128, 5,\
+								1, 1, 1,\
+								4, 4, 4, 4, 4, 4, 4,\
+								4, 4, 4, 4, 4, 4, 4};
+
+// End of Fill out //////////////////////////////////////////////////////////////////////////////////////////
+
 uint8_t compiled_payload[PAYLOAD_BYTES] = {0};
 
 
-// helper function to init the payload data (calculated at runtime). Note, this is clunkier but more generalizable.
-// If you want something a little more readable, we could make the packet constants be compile time constants.
-
-
-// helper function to calculate payload byte length
-static uint16_t calc_payload_bytes(void)
-{
-	uint16_t payload_bytes = 0;
-	for (uint16_t i = 0; i < PAYLOAD_DATA_FIELDS; i++)
-	{
-		payload_bytes += payload_length_key[i];
-	}
-	return payload_bytes;
-}
+//// helper function to calculate payload byte length
+//static uint16_t calc_payload_bytes(void)
+//{
+//	uint16_t payload_bytes = 0;
+//	for (uint16_t i = 0; i < PAYLOAD_DATA_FIELDS; i++)
+//	{
+//		payload_bytes += payload_length_key[i];
+//	}
+//	return payload_bytes;
+//}
 
 // helper function for implementing CRC packets
 static uint16_t crc16_ccitt(const uint8_t* buf, uint16_t len)
@@ -85,11 +90,11 @@ void compile_data_sources(uint8_t input_count, ...)
 
 // Package data and send over UART
 // Packet the predefined data payload (Non-generic)
-static void crc_uart_send_data(const uint8_t* src,
+void crc_uart_send_data(const uint8_t* src,
 		UART_HandleTypeDef* huart)
 {
 
-	uint8_t pkt[pkt_bytes];
+	uint8_t pkt[PKT_BYTES];
 
 	// 1. Header (preamble)
 	pkt[0] = 0x55;
@@ -99,29 +104,8 @@ static void crc_uart_send_data(const uint8_t* src,
     pkt[2] = (uint8_t)(PAYLOAD_BYTES & 0xFF);        // LSB
     pkt[3] = (uint8_t)((PAYLOAD_BYTES >> 8) & 0xFF); // MSB
 
-    // 3. Build the payload: Iterate across the payload length key.
-    // Check the size of the input data to ensure correctness
-//    for (uint8_t i = 0; i <)
-//
-//    if (accel_size + trig_size + state_size + fft_size == PAYLOAD_BYTES)
-//    {
-//		memcpy(&pkt[write_index], accel_data, accel_size);
-//		write_index += accel_size;
-//
-//		memcpy(&pkt[write_index], trig_data, trig_size);
-//		write_index += trig_size;
-//
-//		memcpy(&pkt[write_index], state_data, state_size);
-//		write_index += state_size;
-//
-//		memcpy(&pkt[write_index], fft_data, fft_size);
-//		write_index += fft_size;
-//    } else
-//    {
-//    	uint8_t error_array[PAYLOAD_BYTES] = {0};
-//    	memcpy(&pkt[write_index], error_array, (size_t)PAYLOAD_BYTES);
-//    }
-
+    // 3. Build the payload: Copy the data from the compiled array to the delivery packet.
+    memcpy(&pkt[4], compiled_payload, PAYLOAD_BYTES);
 
     // 4. CRC over length + payload
     //    Starts from pkt[2], length = LEN_FIELD_BYTES + PAYLOAD_BYTES
@@ -130,5 +114,5 @@ static void crc_uart_send_data(const uint8_t* src,
     pkt[4 + PAYLOAD_BYTES + 1] = (uint8_t)(crc >> 8);
 
     // 5. Transmit over UART
-    HAL_UART_Transmit(&huart2, pkt, PKT_BYTES, HAL_MAX_DELAY);
+    HAL_UART_Transmit(huart, pkt, PKT_BYTES, HAL_MAX_DELAY);
 }

@@ -23,21 +23,23 @@ extern "C" {
 #define HEADER_BYTES 3
 #define CRC_BYTES 2
 
+
 // Fill in Below for each new protocol ///////////////////////////////////////////////////////////////////////
-// Array that tell the CRC packager how many bytes are used for each data field
-uint16_t payload_length_key[] = {100, 50, 128, 5,\
-								4, 4, 4, 4, 4, 4, 4, 1, 1,\
-								4, 4, 4, 4, 4, 4, 4, 1, 1};
-// Human readable list of each entry (Not necessary for the CRC packager but helps me remember)
-char *payload_entries[] = {"vibro-Z-axis", "vibro-gpio","vibro-fft","vibro-state",\
-						"exo1-pos","exo1-vel","exo1-accel","exo1-ic","exo1-tau","exo1-kd","exo1-ki",'exo1-busy',"exo1-fsm",\
-						"exo2-pos","exo2-vel","exo2-accel","exo2-ic","exo2-tau","exo2-kd","exo2-ki",'exo2-busy',"exo2-fsm"};
+
+extern uint16_t payload_length_key[]; // Fill out in source file. Array that tell the CRC packager how many bytes are used for each data field
+extern char *payload_entries[]; // Fill out in source file. Human readable list of each entry (Not necessary for the CRC packager but helps me remember).
+#define PAYLOAD_BYTES 342 // Total number of Payload Bytes (Be sure to calculate this correctly! Its the sum of payload_length_key)
+
 // End of Fill out //////////////////////////////////////////////////////////////////////////////////////////
 
+extern uint8_t compiled_payload[];
+#define PAYLOAD_DATA_FIELDS sizeof(payload_length_key) / sizeof(payload_length_key[0]) // Does not need to be changed. Number of Payload Data Fields.
+#define PKT_BYTES (HEADER_BYTES + LEN_FIELD_BYTES + PAYLOAD_BYTES + CRC_BYTES)
 
-static uint16_t calc_payload_bytes(void); // helper function for calculating payload bytes
-static uint16_t crc16_ccitt(const uint8_t* buf, uint16_t len); // helper function for implementing CRC packets
-static void crc_uart_send_data(const uint8_t* src, UART_HandleTypeDef* huart); // Send crc-packeted data over UART
+
+
+void compile_data_sources(uint8_t input_count, ...); // helper function for compiling data from different memory locations to the compiled payload location
+void crc_uart_send_data(const uint8_t* src, UART_HandleTypeDef* huart); // Send crc-packeted data over UART
 
 
 

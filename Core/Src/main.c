@@ -31,6 +31,7 @@
 
 #include "structs.h"
 #include "crc.h"
+#include "data_arrays.h"
 
 
 
