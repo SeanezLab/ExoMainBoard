@@ -154,9 +154,27 @@ int main(void)
 //	  uint8_t x = 48;
 //	  x++;
 //	  char tx_test = (char)x;
-	  char tx_test[] = "one two three four five six seven eight nine ten eleven\r\n";
-	  HAL_UART_Transmit(&huart1, (uint8_t*)tx_test, sizeof(tx_test), HAL_MAX_DELAY);
+	  int16_t z_transmit[50];
+	  for (uint16_t i = 0; i < 50; i++)
+	  {
+		  z_transmit[i] = 65;
+	  }
+	  memcpy(vibro_z_axis, z_transmit, 50 * sizeof(int16_t));
+
+	  compile_data_sources(21,
+			  vibro_z_axis, vibro_gpio, vibro_fft, vibro_state,
+			  exo_busy, exo_fsm, exo_debug,
+			  m1_pos, m1_vel, m1_accel, m1_ic, m1_tau, m1_kd, m1_ki,
+			  m2_pos, m2_vel, m2_accel, m2_ic, m2_tau, m2_kd, m2_ki);
+
+	  crc_uart_send_data(compiled_payload, &huart1);
+
+
+	  //char tx_test[] = "one two three four five six seven eight nine ten eleven\r\n";
+	  //HAL_UART_Transmit(&huart1, (uint8_t*)tx_test, sizeof(tx_test), HAL_MAX_DELAY);
 	  HAL_Delay(100);
+
+
 //	  if (got_bt_msg == true){
 //		  //HAL_UART_Transmit(&huart2, (uint8_t*)bt_rx_dma_buffer+bt_idx, bt_msg_size, HAL_MAX_DELAY);
 //		  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
