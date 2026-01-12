@@ -161,6 +161,16 @@ int main(void)
 	  }
 	  memcpy(vibro_z_axis, z_transmit, 50 * sizeof(int16_t));
 
+	  if (got_bt_msg == true)
+	  {
+		  for (uint16_t i = 0; i < 50; i++)
+		  	  {
+		  		  z_transmit[i] = 56;
+		  	  }
+		  memcpy(vibro_z_axis, z_transmit, 50 * sizeof(int16_t));
+		  got_bt_msg = false;
+	  }
+
 	  compile_data_sources(21,
 			  vibro_z_axis, vibro_gpio, vibro_fft, vibro_state,
 			  exo_busy, exo_fsm, exo_debug,
@@ -189,8 +199,6 @@ int main(void)
 //
 //
 //	  }
-//	  char msg[] = "Hello world, it's so cold in this machine. I long to stride the earth in living tissue\r\n";
-//	  HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
 
     /* USER CODE END WHILE */
 

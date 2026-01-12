@@ -14,13 +14,14 @@ extern "C" {
 
 #include <main.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdarg.h>
 
 // Two byte protocol
 #define LEN_FIELD_BYTES 2
-#define HEADER_BYTES 3
+#define HEADER_BYTES 2 // This was 3?!
 #define CRC_BYTES 2
 
 

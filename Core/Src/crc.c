@@ -7,6 +7,7 @@
 
 
 #include "crc.h"
+#include "circular_reading_buffer.h"
 
 // Fill in Below for each new protocol ///////////////////////////////////////////////////////////////////////
 char *payload_entries[] = {"vibro_z_axis", "vibro_gpio","vibro_fft","vibro_state",\
@@ -115,4 +116,18 @@ void crc_uart_send_data(const uint8_t* src,
 
     // 5. Transmit over UART
     HAL_UART_Transmit(huart, pkt, PKT_BYTES, HAL_MAX_DELAY);
+}
+
+// Parses incoming information. This will be the most variable amongst implementations if reusing this file on other projects.
+void crc_uart_rcv_data(const uint8_t* src, uint16_t length)
+{
+	// Find the header if it exists.
+	uint8_t header[] = {0x55, 0xAA};
+	uint8_t* start = memmem(src, length, header, sizeof(header));
+	// Center about the header.
+	if (start)
+	{
+		size_t offset = (size_t)(start-src);
+	}
+
 }
