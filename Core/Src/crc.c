@@ -6,8 +6,10 @@
  */
 
 
+#include <limits.h>
 #include "crc.h"
 #include "circular_reading_buffer.h"
+#include "data_arrays.h"
 
 // Fill in Below for each new protocol ///////////////////////////////////////////////////////////////////////
 char *payload_entries[] = {"vibro_z_axis", "vibro_gpio","vibro_fft","vibro_state",\
@@ -24,18 +26,73 @@ uint16_t payload_length_key[] = {100, 50, 128, 5,\
 // End of Fill out //////////////////////////////////////////////////////////////////////////////////////////
 
 uint8_t compiled_payload[PAYLOAD_BYTES] = {0};
+uint8_t rx_buffer[RX_BUF_LEN] = {0};
+size_t rx_write_idx = 0;
 
+// helper functions for clamping floats
+static inline uint8_t clamp_u8_from_f32(float x)
+{
+    // Round to nearest integer
+    int32_t v = (int32_t)(x + (x >= 0.0f ? 0.5f : -0.5f));
 
-//// helper function to calculate payload byte length
-//static uint16_t calc_payload_bytes(void)
-//{
-//	uint16_t payload_bytes = 0;
-//	for (uint16_t i = 0; i < PAYLOAD_DATA_FIELDS; i++)
-//	{
-//		payload_bytes += payload_length_key[i];
-//	}
-//	return payload_bytes;
-//}
+    // Clamp to uint8_t range
+    if (v < 0)
+    {
+        return 0;
+    }
+    else if (v > 255)
+    {
+        return 255;
+    }
+    else
+    {
+        return (uint8_t)v;
+    }
+}
+
+static inline int16_t clamp_i16_from_f32(float x)
+{
+    // Round to nearest integer (half away from zero)
+    int32_t v = (int32_t)(x + (x >= 0.0f ? 0.5f : -0.5f));
+
+    // Clamp to int16_t range
+    if (v > INT16_MAX)
+    {
+        return INT16_MAX;
+    }
+    else if (v < INT16_MIN)
+    {
+        return INT16_MIN;
+    }
+    else
+    {
+        return (int16_t)v;
+    }
+}
+
+// helper function for implementing memmem
+static void* memmem(const void* haystack, size_t haystack_len,
+			const void* needle, size_t needle_len)
+{
+    if (needle_len == 0 || haystack_len < needle_len)
+    {
+        return NULL;
+    }
+
+    const uint8_t *h = (const uint8_t *)haystack;
+    const uint8_t *n = (const uint8_t *)needle;
+
+    for (size_t i = 0; i <= haystack_len - needle_len; i++)
+    {
+        if (h[i] == n[0] &&
+            memcmp(&h[i], n, needle_len) == 0)
+        {
+            return (void *)&h[i];
+        }
+    }
+
+    return NULL;
+}
 
 // helper function for implementing CRC packets
 static uint16_t crc16_ccitt(const uint8_t* buf, uint16_t len)
@@ -119,15 +176,93 @@ void crc_uart_send_data(const uint8_t* src,
 }
 
 // Parses incoming information. This will be the most variable amongst implementations if reusing this file on other projects.
-void crc_uart_rcv_data(const uint8_t* src, uint16_t length)
+void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 {
 	// Find the header if it exists.
 	uint8_t header[] = {0x55, 0xAA};
-	uint8_t* start = memmem(src, length, header, sizeof(header));
-	// Center about the header.
-	if (start)
+	uint8_t* p_start = memmem(rdg_struct->buffer, length, header, sizeof(header));
+	// Center about the header if it exists.
+	if (p_start == NULL)
 	{
-		size_t offset = (size_t)(start-src);
+		// No header detected. For now, we will ignore the case when the header splits and accept loss of the cmd packet.
+		return;
 	}
+	size_t start = (size_t)(p_start - rdg_struct->buffer);
+	if (length < start + HEADER_BYTES + LEN_FIELD_BYTES)
+	{
+		// Not enough data for a full packet yet. Flush and wait for next loop. For now, we will do this all or nothing, where we get a complete
+		// uninterrupted packet, or we do nothing. If this fails we'll deal with the edge cases. We transmit just a few bytes so I think this is ok.
+		return;
+	}
+	// Pull out the payload length
+
+	uint16_t payload_length = (uint16_t)rdg_struct->buffer[start+HEADER_BYTES] | ((uint16_t)rdg_struct->buffer[start+HEADER_BYTES+1] << 8);
+	uint16_t frame_len = HEADER_BYTES + LEN_FIELD_BYTES + payload_length + CRC_BYTES;
+
+	// if we do not have enough for a full transmission, do nothing.
+	if (length < start + frame_len)
+	{
+		// Not a full packet. Discard the command.
+		return;
+	}
+
+	// Lets calculate the check sum
+	uint8_t frame[frame_len];
+	memcpy(frame, &(rdg_struct->buffer[start]), frame_len);
+	uint16_t crc_rx = (uint16_t)rdg_struct->buffer[start + HEADER_BYTES + LEN_FIELD_BYTES + payload_length] \
+			| ((uint16_t)rdg_struct->buffer[start + HEADER_BYTES + LEN_FIELD_BYTES + payload_length + 1] << 8);
+	// CRC is over length + payload
+	uint16_t crc_calc = crc16_ccitt(&(rdg_struct->buffer[start + HEADER_BYTES]), frame_len- (HEADER_BYTES + CRC_BYTES));
+
+	// If the packet is valid, handle appropriately
+	if (crc_rx == crc_calc)
+	{
+		// Valid packet
+		uint16_t payload_start = start + HEADER_BYTES + LEN_FIELD_BYTES;
+		float condition;
+		memcpy(&condition, &(rdg_struct->buffer[payload_start]), sizeof(condition));
+		// In future this will use a callback
+		if (condition == 0)
+		{
+			// This is a mode switch packet. For now do nothing.
+			;
+		}
+		else if (condition == 1)
+		{
+			// This is the motor packet. float[packet_type, m1_pos, m2_pos]
+			memcpy(m1_pos, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
+			memcpy(m2_pos, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+		}
+		else if (condition == 2)
+		{
+			// This is the vibrotactile packet. float[packet_type, tSCS_delay, target_frequency, duty_cycle, z_axis_threshold]
+			// Create the temp floats to hold the data from the payload
+			float tscs_delay_float;
+			float target_frequency_float;
+			float duty_cycle_float;
+			float z_axis_thresh_float;
+			// Copy data to our temp floats
+			memcpy(&tscs_delay_float, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
+			memcpy(&target_frequency_float, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+			memcpy(&duty_cycle_float, &(rdg_struct->buffer[payload_start+(3*sizeof(float))]), sizeof(float));
+			memcpy(&z_axis_thresh_float, &(rdg_struct->buffer[payload_start+(4*sizeof(float))]), sizeof(float));
+			// Truncate the data to match our storage arrays
+			uint8_t tscs_delay_bytes = clamp_u8_from_f32(tscs_delay_float);
+			uint8_t target_frequency_bytes = clamp_u8_from_f32(target_frequency_float);
+			uint8_t duty_cycle_bytes = clamp_u8_from_f32(duty_cycle_float);
+			int16_t z_axis_thresh_bytes = clamp_i16_from_f32(z_axis_thresh_float);
+			// Write the truncated data to the corresponding array
+			memcpy(&vibro_state[0],&tscs_delay_bytes,sizeof(tscs_delay_bytes));
+			memcpy(&vibro_state[1],&target_frequency_bytes,sizeof(target_frequency_bytes));
+			memcpy(&vibro_state[2],&duty_cycle_bytes,sizeof(duty_cycle_bytes));
+			memcpy(&vibro_state[3],&z_axis_thresh_bytes,sizeof(z_axis_thresh_bytes));
+		}
+		else
+		{
+			// Packet is of unknown mode.
+			return;
+		}
+	}
+	return;
 
 }

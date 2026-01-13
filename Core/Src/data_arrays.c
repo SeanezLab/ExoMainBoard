@@ -10,10 +10,13 @@
 
 // Holds the data array variable for better readability
 
+
+
 // Vibrotactile stimulator data
 uint8_t vibro_z_axis[100] = {0};
 uint8_t vibro_gpio[50] = {0};
 uint8_t vibro_fft[128] = {0};
+// 1st byte, tSCS delay (ms), Uint8; 2nd byte, Target Frequency (hz), Uint8; 3rd byte, Duty Cycle (%), Uint8; 4th and 5th bytes, Z-axis threshold (Gs), Int16.
 uint8_t vibro_state[5] = {0};
 // Exoskeleton main control board data
 uint8_t exo_busy[1] = {0};

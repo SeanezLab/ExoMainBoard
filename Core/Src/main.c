@@ -131,7 +131,7 @@ int main(void)
   // Choose a timeout value in bit-times / baud clocks.
   // For a start, pick something like "20 char times".
   // Exact scaling depends on the reference manual, but this shape is right:
-  huart1.Instance->RTOR = 20;                 // timeout value (tune later)
+  huart1.Instance->RTOR = 200;                 // timeout value (tune later)
   SET_BIT(huart1.Instance->CR2, USART_CR2_RTOEN);   // enable RTO
   SET_BIT(huart1.Instance->CR1, USART_CR1_RTOIE);   // enable RTO interrupt
 
@@ -154,20 +154,42 @@ int main(void)
 //	  uint8_t x = 48;
 //	  x++;
 //	  char tx_test = (char)x;
-	  int16_t z_transmit[50];
-	  for (uint16_t i = 0; i < 50; i++)
-	  {
-		  z_transmit[i] = 65;
-	  }
-	  memcpy(vibro_z_axis, z_transmit, 50 * sizeof(int16_t));
+//	  int16_t z_transmit[50];
+//	  for (uint16_t i = 0; i < 50; i++)
+//	  {
+//		  z_transmit[i] = 65;
+//	  }
+//	  memcpy(vibro_z_axis, z_transmit, 50 * sizeof(int16_t));
+//
+//	  if (got_bt_msg == true)
+//	  {
+//		  for (uint16_t i = 0; i < 50; i++)
+//		  	  {
+//		  		  z_transmit[i] = 56;
+//		  	  }
+//		  memcpy(vibro_z_axis, z_transmit, 50 * sizeof(int16_t));
+//		  got_bt_msg = false;
+//	  }
+//
+//	  compile_data_sources(21,
+//			  vibro_z_axis, vibro_gpio, vibro_fft, vibro_state,
+//			  exo_busy, exo_fsm, exo_debug,
+//			  m1_pos, m1_vel, m1_accel, m1_ic, m1_tau, m1_kd, m1_ki,
+//			  m2_pos, m2_vel, m2_accel, m2_ic, m2_tau, m2_kd, m2_ki);
+//
+//	  crc_uart_send_data(compiled_payload, &huart1);
+
+
+	  //char tx_test[] = "one two three four five six seven eight nine ten eleven\r\n";
+	  //HAL_UART_Transmit(&huart1, (uint8_t*)tx_test, sizeof(tx_test), HAL_MAX_DELAY);
+	  HAL_Delay(100);
+
 
 	  if (got_bt_msg == true)
 	  {
-		  for (uint16_t i = 0; i < 50; i++)
-		  	  {
-		  		  z_transmit[i] = 56;
-		  	  }
-		  memcpy(vibro_z_axis, z_transmit, 50 * sizeof(int16_t));
+		  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
+		  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
+		  flush_buffer(bt_dma_reader);
 		  got_bt_msg = false;
 	  }
 
@@ -178,27 +200,6 @@ int main(void)
 			  m2_pos, m2_vel, m2_accel, m2_ic, m2_tau, m2_kd, m2_ki);
 
 	  crc_uart_send_data(compiled_payload, &huart1);
-
-
-	  //char tx_test[] = "one two three four five six seven eight nine ten eleven\r\n";
-	  //HAL_UART_Transmit(&huart1, (uint8_t*)tx_test, sizeof(tx_test), HAL_MAX_DELAY);
-	  HAL_Delay(100);
-
-
-//	  if (got_bt_msg == true){
-//		  //HAL_UART_Transmit(&huart2, (uint8_t*)bt_rx_dma_buffer+bt_idx, bt_msg_size, HAL_MAX_DELAY);
-//		  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
-//		  rdg_buf_echo(bt_dma_reader, &huart2);
-////		  rdg_buf_echo(bt_dma_reader, &huart1);
-//		  flush_buffer(bt_dma_reader);
-//
-//		  char tx_test[] = "Thequickbrownfoxjumpedoverthelazydog";
-//		  HAL_UART_Transmit(&huart1, (uint8_t*)tx_test, sizeof(tx_test), HAL_MAX_DELAY);
-//		  got_bt_msg = false;
-//		  //bt_idx = (bt_idx + bt_msg_size) % BT_RX_DMA_SIZE;
-//
-//
-//	  }
 
     /* USER CODE END WHILE */
 
