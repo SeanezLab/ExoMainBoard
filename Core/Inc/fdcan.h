@@ -36,11 +36,40 @@ extern FDCAN_HandleTypeDef hfdcan1;
 
 /* USER CODE BEGIN Private defines */
 
+#define P_MIN -95.5f
+#define P_MAX 95.5f
+#define V_MIN -30.0f
+#define V_MAX 30.0f
+#define KP_MIN 0.0f
+#define KP_MAX 500.0f
+#define KD_MIN 0.0f
+#define KD_MAX 5.0f
+#define I_MIN -18.0f
+#define I_MAX 18.0f
+
 /* USER CODE END Private defines */
 
 void MX_FDCAN1_Init(void);
 
 /* USER CODE BEGIN Prototypes */
+
+typedef struct{
+	uint8_t id;
+	uint8_t data[6];
+	FDCAN_RxHeaderTypeDef rx_header;
+	FDCAN_FilterTypeDef filter = {0}; //Zero initialize to prevent undefined behavior
+}CANRxMessage ;
+
+typedef struct{
+	uint8_t id;
+	uint8_t data[8];
+	FDCAN_TxHeaderTypeDef tx_header;
+}CANTxMessage ;
+
+void can_rx_init(CANRxMessage* msg);
+void can_tx_init(CANTxMessage* msg);
+void can_pack_tx(CANTxMessage* msg, float* p_des, float* v_des, float* kp, float* kd, float* t_ff);
+void can_unpack_rx(float* rx_reply);
 
 /* USER CODE END Prototypes */
 

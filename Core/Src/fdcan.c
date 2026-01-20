@@ -18,10 +18,10 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include "fdcan.h"
 
 /* USER CODE BEGIN 0 */
-
+#include "fdcan.h"
+#include "math_helpers.h"
 /* USER CODE END 0 */
 
 FDCAN_HandleTypeDef hfdcan1;
@@ -130,5 +130,58 @@ void HAL_FDCAN_MspDeInit(FDCAN_HandleTypeDef* fdcanHandle)
 }
 
 /* USER CODE BEGIN 1 */
+
+// Helper function to convert from integers to enums for HAL
+static uint32_t CAN_BytesToDlc(uint8_t len)
+{
+  switch (len)
+  {
+    case 0: return FDCAN_DLC_BYTES_0;
+    case 1: return FDCAN_DLC_BYTES_1;
+    case 2: return FDCAN_DLC_BYTES_2;
+    case 3: return FDCAN_DLC_BYTES_3;
+    case 4: return FDCAN_DLC_BYTES_4;
+    case 5: return FDCAN_DLC_BYTES_5;
+    case 6: return FDCAN_DLC_BYTES_6;
+    case 7: return FDCAN_DLC_BYTES_7;
+    case 8: return FDCAN_DLC_BYTES_8;
+    default: return 0xFFFFFFFFu; // invalid
+  }
+}
+
+// Initializes the CAN reception structure, and sets the rx filter configuration
+void can_rx_init(CANRxMessage* msg)
+{
+	msg->filter.IdType = FDCAN_STANDARD_ID; // Selects the standard 11 bit ID table
+	msg->filter.FilterIndex = 0; // Selects the filter index
+	msg->filter.FilterType = FDCAN_FILTER_RANGE; // Accept the ID if it is between Filter ID1 and Filter ID2
+	msg->filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO0; // Tells the hardware what to do if the filter matches
+	msg->filter.FilterID1 = 0x000; // Lower bound ID range
+	msg->filter.FilterID2 = 0x7FF; // Upper bound ID range
+	// Apply filter configuration, handle errors if needed
+	if (HAL_FDCAN_ConfigFilter(hfdcan1, &filter) != HAL_OK)
+	{
+	  Error_Handler();
+	}
+}
+// Initializes the CAN transmission structure, and sets the header attributes
+void can_tx_init(CANTxMessage* msg)
+{
+	msg->tx_header.IdType = FDCAN_STANDARD_ID;
+	msg->tx_header.TxFrameType = FDCAN_DATA_FRAME;
+	msg->tx_header.FDFormat = FDCAN_CLASSIC_CAN;
+	msg->tx_header.BitRateSwitch = FDCAN_BRS_OFF;
+	msg->tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+	msg->tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+	msg->tx_header.MessageMarker = 0;
+
+}
+// Send
+void can_pack_tx(CANTxMessage* msg, float* p_des, float* v_des, float* kp, float* kd, float* t_ff)
+{
+	int p_int float_to_uint(p_des, );
+}
+
+HAL_StatusTypeDef CAN_SendStd()
 
 /* USER CODE END 1 */
