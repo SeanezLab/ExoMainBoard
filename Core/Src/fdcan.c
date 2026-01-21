@@ -159,29 +159,65 @@ void can_rx_init(CANRxMessage* msg)
 	msg->filter.FilterID1 = 0x000; // Lower bound ID range
 	msg->filter.FilterID2 = 0x7FF; // Upper bound ID range
 	// Apply filter configuration, handle errors if needed
-	if (HAL_FDCAN_ConfigFilter(hfdcan1, &filter) != HAL_OK)
+	if (HAL_FDCAN_ConfigFilter(&hfdcan1, &(msg->filter)) != HAL_OK)
 	{
 	  Error_Handler();
 	}
 }
 // Initializes the CAN transmission structure, and sets the header attributes
-void can_tx_init(CANTxMessage* msg)
+void can_tx_init(CANTxMessage* msg, uint32_t motor_id)
 {
 	msg->tx_header.IdType = FDCAN_STANDARD_ID;
+	msg->tx_header.DataLength = FDCAN_DLC_BYTES_8;
 	msg->tx_header.TxFrameType = FDCAN_DATA_FRAME;
 	msg->tx_header.FDFormat = FDCAN_CLASSIC_CAN;
 	msg->tx_header.BitRateSwitch = FDCAN_BRS_OFF;
 	msg->tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
 	msg->tx_header.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
 	msg->tx_header.MessageMarker = 0;
+	msg->tx_header.Identifier = motor_id;
 
 }
 // Send
-void can_pack_tx(CANTxMessage* msg, float* p_des, float* v_des, float* kp, float* kd, float* t_ff)
+void can_pack_tx(CANTxMessage* msg, float* p_des, float* v_des, float* kp_des, float* kd_des, float* t_ff_des)
 {
-	int p_int float_to_uint(p_des, );
+	// Limit the data to be within bounds
+    float p_bnd = fminf(fmaxf(P_MIN, *p_des), P_MAX);
+    float v_bnd = fminf(fmaxf(V_MIN, *v_des), V_MAX);
+    float kp_bnd = fminf(fmaxf(KP_MIN, *kp_des), KP_MAX);
+    float kd_bnd = fminf(fmaxf(KD_MIN, *kd_des), KD_MAX);
+    float t_bnd = fminf(fmaxf(I_MIN, *t_ff_des), I_MAX);
+	// Compress a float to an uint of given bits
+	int p_int = float_to_uint(p_bnd, P_MIN, P_MAX, 16);
+	int v_int = float_to_uint(v_bnd, V_MIN, V_MAX, 12);
+	int kp_int = float_to_uint(kp_bnd, KP_MIN, KP_MAX, 12);
+	int kd_int = float_to_uint(kd_bnd, KP_MIN, KP_MAX, 12);
+	int t_int = float_to_uint(t_bnd, I_MIN, I_MAX, 12);
+	// Pack the commands into the CAN buffer
+	msg->data[0] = p_int>>8;
+	msg->data[1] = p_int&0xFF;
+	msg->data[2] = v_int>>4;
+	msg->data[3] = ((v_int&0xF)<<4)|(kp_int>>8);
+	msg->data[4] = kp_int&0xFF;
+	msg->data[5] = kd_int>>4;
+	msg->data[6] = ((kd_int&0xF)<<4)|(t_int>>8);
+	msg->data[7] = t_int&0xff;
 }
 
-HAL_StatusTypeDef CAN_SendStd()
+void unpack_reply(CANRxMessage msg)
+{
+    /// unpack ints from can buffer ///
+    int id = msg.data[0];
+    int p_int = (msg.data[1]<<8)|msg.data[2];
+    int v_int = (msg.data[3]<<4)|(msg.data[4]>>4);
+    int i_int = ((msg.data[4]&0xF)<<8)|msg.data[5];
+    /// convert ints to floats ///
+    float p = uint_to_float(p_int, P_MIN, P_MAX, 16);
+    float v = uint_to_float(v_int, V_MIN, V_MAX, 12);
+    float i = uint_to_float(i_int, -I_MAX, I_MAX, 12);
+
+    //printf("%d  %.3f   %.3f   %.3f\n\r", id, p, v, i);
+
+}
 
 /* USER CODE END 1 */

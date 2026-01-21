@@ -57,7 +57,7 @@ typedef struct{
 	uint8_t id;
 	uint8_t data[6];
 	FDCAN_RxHeaderTypeDef rx_header;
-	FDCAN_FilterTypeDef filter = {0}; //Zero initialize to prevent undefined behavior
+	FDCAN_FilterTypeDef filter;
 }CANRxMessage ;
 
 typedef struct{
@@ -67,7 +67,7 @@ typedef struct{
 }CANTxMessage ;
 
 void can_rx_init(CANRxMessage* msg);
-void can_tx_init(CANTxMessage* msg);
+void can_tx_init(CANTxMessage* msg, uint32_t motor_id);
 void can_pack_tx(CANTxMessage* msg, float* p_des, float* v_des, float* kp, float* kd, float* t_ff);
 void can_unpack_rx(float* rx_reply);
 

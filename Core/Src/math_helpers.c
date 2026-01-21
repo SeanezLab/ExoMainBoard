@@ -2,8 +2,20 @@
  * math_helpers.c
  *
  *  Created on: Jan 20, 2026
- *      Author: k.rodolfo
+ *      Author: Ben Katz, yoinked by Rodolfo Keesey from https://os.mbed.com/users/benkatz/code/CanMasterTest/
  */
+
+float fmaxf(float x, float y)
+	{
+    /// Returns maximum of x, y ///
+    return (((x)>(y))?(x):(y));
+    }
+
+float fminf(float x, float y)
+	{
+    /// Returns minimum of x, y ///
+    return (((x)<(y))?(x):(y));
+    }
 
 int float_to_uint(float x, float x_min, float x_max, int bits){
     /// Converts a float to an unsigned int, given range and number of bits via linear normalization ///

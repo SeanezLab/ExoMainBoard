@@ -64,13 +64,21 @@
 volatile bool got_bt_msg = false;
 volatile uint16_t bt_msg_size = 0;
 
-// Define buffer structures
-rb_struct* bt_rx_buffer;
-rb_struct* vibro_rx_buffer;
+// Define Bluetooth buffer structures
 rdg_buf_struct* bt_dma_reader;
+uint8_t bt_rx_dma_buffer[BT_RX_DMA_SIZE]; // (Written to by DMA)
 
-// Define buffer arrays (Used for DMA)
-uint8_t bt_rx_dma_buffer[BT_RX_DMA_SIZE];
+// Motor CAN Structs
+// Motor 1 (Proximal Joint)
+CANTxMessage m1_tx;
+CANRxMessage m1_rx;
+// Motor 2 (Distal Joint)
+CANTxMessage m2_tx;
+CANRxMessage m2_rx;
+
+// Load Cell Structs
+
+
 
 
 /* USER CODE END PV */
@@ -95,7 +103,6 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 	// Initialize the buffers with a given size
-	bt_rx_buffer = rb_init(1024); // unused
 	bt_dma_reader = rdg_buf_init(BT_RX_DMA_SIZE);
 	volatile uint16_t bt_idx = 0;
 
@@ -143,6 +150,15 @@ int main(void)
   // Try receiver timeout interrupt on huart1
   __HAL_UART_ENABLE_IT(&huart1, UART_IT_RTO);
 
+  // Initialize CAN communication structures
+  // Motor 1
+  can_tx_init(&m1_tx, 1);
+  can_rx_init(&m1_rx);
+  // Motor 2
+  can_tx_init(&m2_tx, 2);
+  can_rx_init(&m2_rx);
+  HAL_FDCAN_Start(&hfdcan1);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -165,6 +181,11 @@ int main(void)
 			  m2_pos, m2_vel, m2_accel, m2_ic, m2_tau, m2_kd, m2_ki);
 
 	  crc_uart_send_data(compiled_payload, &huart1);
+
+//	  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
+//	  if (st != HAL_OK) {
+//	    Error_Handler();
+//	  }
 	  HAL_Delay(100);
 
     /* USER CODE END WHILE */

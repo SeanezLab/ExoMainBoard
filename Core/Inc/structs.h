@@ -10,6 +10,7 @@
 
 #include "circular_reading_buffer.h"
 #include "ring_buffer.h"
+#include "fdcan.h"
 
 // Global Structs
 extern rdg_buf_struct* bt_dma_reader;
