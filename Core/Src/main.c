@@ -159,6 +159,13 @@ int main(void)
   can_rx_init(&m2_rx);
   HAL_FDCAN_Start(&hfdcan1);
 
+  FDCAN_ProtocolStatusTypeDef ps;
+  m1_tx.data[0] = 0xff;
+  m1_tx.data[1] = 0xff;
+  m1_tx.data[2] = 0xff;
+  m1_tx.data[3] = 0xff;
+  m1_tx.data[7] = 0xff;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -182,11 +189,15 @@ int main(void)
 
 	  crc_uart_send_data(compiled_payload, &huart1);
 
-//	  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
-//	  if (st != HAL_OK) {
-//	    Error_Handler();
-//	  }
-	  HAL_Delay(100);
+	  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
+	  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
+	  if (st != HAL_OK)
+	  {
+		  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
+		  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
+		  Error_Handler();
+	  }
+	  HAL_Delay(1000);
 
     /* USER CODE END WHILE */
 
