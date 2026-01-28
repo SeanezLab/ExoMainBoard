@@ -5,8 +5,8 @@
  *      Author: k.rodolfo
  */
 
-#ifndef INC_DATA_ARRAYS_H_
-#define INC_DATA_ARRAYS_H_
+#ifndef INC_DATA_TX_ARRAYS_H_
+#define INC_DATA_TX_ARRAYS_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,4 +49,4 @@ extern uint8_t m2_ki[];
 #endif
 
 
-#endif /* INC_DATA_ARRAYS_H_ */
+#endif /* INC_DATA_TX_ARRAYS_H_ */

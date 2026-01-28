@@ -6,10 +6,10 @@
  */
 
 
+#include <data_tx_arrays.h>
 #include <limits.h>
 #include "crc.h"
 #include "circular_reading_buffer.h"
-#include "data_arrays.h"
 
 // Fill in Below for each new protocol ///////////////////////////////////////////////////////////////////////
 char *payload_entries[] = {"vibro_z_axis", "vibro_gpio","vibro_fft","vibro_state",\

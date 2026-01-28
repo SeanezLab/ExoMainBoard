@@ -6,7 +6,7 @@
  */
 
 
-#include "data_arrays.h"
+#include "data_tx_arrays.h"
 
 // Holds the data array variable for better readability
 
