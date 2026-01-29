@@ -21,8 +21,9 @@
 #include "fdcan.h"
 
 /* USER CODE BEGIN 0 */
-#include "fdcan.h"
+#include "structs.h"
 #include "math_helpers.h"
+#include "data_tx_arrays.h"
 /* USER CODE END 0 */
 
 FDCAN_HandleTypeDef hfdcan1;
@@ -225,8 +226,25 @@ void unpack_reply(CANRxMessage msg)
     float v = uint_to_float(v_int, V_MIN, V_MAX, 12);
     float i = uint_to_float(i_int, -I_MAX, I_MAX, 12);
 
-    //printf("%d  %.3f   %.3f   %.3f\n\r", id, p, v, i);
+    if (id == 1)
+    {
+    	memcpy(&m1_pos, )
+    }
 
+}
+
+// The RX Interrupt Callback. I don't know if I like keeping it here or in the dedicated interrupts file...
+void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
+{
+    if (RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE)
+    {
+
+        if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &(m_rx.rx_header), m_rx.data) == HAL_OK)
+        {
+            // handle message
+
+        }
+    }
 }
 
 /* USER CODE END 1 */

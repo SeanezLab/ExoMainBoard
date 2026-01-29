@@ -12,7 +12,15 @@
 #include "ring_buffer.h"
 #include "fdcan.h"
 
-// Global Structs
+// Global Structs ///
+// Bluetooth UART
 extern rdg_buf_struct* bt_dma_reader;
+// Motor CAN Structs
+// Motor 1 (Proximal Joint)
+extern CANTxMessage m1_tx;
+// Motor 2 (Distal Joint)
+extern CANTxMessage m2_tx;
+// One receiver for all messages.
+extern CANRxMessage m_rx;
 
 #endif /* INC_STRUCTS_H_ */

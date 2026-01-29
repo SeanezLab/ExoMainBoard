@@ -34,6 +34,7 @@
 
 
 #include "structs.h"
+#include "data_tx_arrays.h"
 #include "crc.h"
 
 
@@ -70,10 +71,10 @@ uint8_t bt_rx_dma_buffer[BT_RX_DMA_SIZE]; // (Written to by DMA)
 // Motor CAN Structs
 // Motor 1 (Proximal Joint)
 CANTxMessage m1_tx;
-CANRxMessage m1_rx;
 // Motor 2 (Distal Joint)
 CANTxMessage m2_tx;
-CANRxMessage m2_rx;
+// Once receiver for all messages.
+CANRxMessage m_rx;
 
 // Load Cell Structs
 
@@ -152,11 +153,20 @@ int main(void)
   // Initialize CAN communication structures
   // Motor 1
   can_tx_init(&m1_tx, 1);
-  can_rx_init(&m1_rx);
   // Motor 2
   can_tx_init(&m2_tx, 2);
-  can_rx_init(&m2_rx);
+  // One receiver for all messages
+  can_rx_init(&m_rx);
+
+  // Start the CAN bus
   HAL_FDCAN_Start(&hfdcan1);
+
+  // Activate notifications
+  HAL_FDCAN_ActivateNotification(
+      &hfdcan1,
+      FDCAN_IT_RX_FIFO0_NEW_MESSAGE,
+      0
+  );
 
   FDCAN_ProtocolStatusTypeDef ps;
   m1_tx.data[0] = 0xff;
@@ -171,6 +181,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  // First query all our sensors (Motor drivers, Vibrotactile Stimulator, Load Cells, etc.)
 
 	  if (got_bt_msg == true)
 	  {
@@ -179,6 +190,8 @@ int main(void)
 		  flush_buffer(bt_dma_reader);
 		  got_bt_msg = false;
 	  }
+
+	  // Transmit states
 
 	  compile_data_sources(21,
 			  vibro_z_axis, vibro_gpio, vibro_fft, vibro_state,
