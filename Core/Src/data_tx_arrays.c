@@ -28,14 +28,14 @@ uint8_t m1_vel[4] = {0};
 uint8_t m1_accel[4] = {0};
 uint8_t m1_ic[4] = {0};
 uint8_t m1_tau[4] = {0};
+uint8_t m1_kp[4] = {0};
 uint8_t m1_kd[4] = {0};
-uint8_t m1_ki[4] = {0};
 // Motor drive 2 data (ankle)
 uint8_t m2_pos[4] = {0};
 uint8_t m2_vel[4] = {0};
 uint8_t m2_accel[4] = {0};
 uint8_t m2_ic[4] = {0};
 uint8_t m2_tau[4] = {0};
+uint8_t m2_kp[4] = {0};
 uint8_t m2_kd[4] = {0};
-uint8_t m2_ki[4] = {0};
 

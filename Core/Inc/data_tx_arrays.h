@@ -32,16 +32,16 @@ extern uint8_t m1_vel[];
 extern uint8_t m1_accel[];
 extern uint8_t m1_ic[];
 extern uint8_t m1_tau[];
+extern uint8_t m1_kp[];
 extern uint8_t m1_kd[];
-extern uint8_t m1_ki[];
 // Motor drive 2 data (ankle)
 extern uint8_t m2_pos[];
 extern uint8_t m2_vel[];
 extern uint8_t m2_accel[];
 extern uint8_t m2_ic[];
 extern uint8_t m2_tau[];
+extern uint8_t m2_kp[];
 extern uint8_t m2_kd[];
-extern uint8_t m2_ki[];
 
 
 #ifdef __cplusplus

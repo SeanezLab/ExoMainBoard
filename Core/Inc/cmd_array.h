@@ -16,22 +16,48 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
+#include "fdcan.h"
+
+// Motor 1 control  constants (Do not change unless you've validated the tuning!)
+#define DES_M1_V .01f
+#define DES_M1_KP 20.0f
+#define DES_M1_KD .75f
+#define DES_M1_TFF 0.0f
+
 // Exoskeleton desired state/mode
 extern float des_mode;
 
-// Motor commands
-extern float des_m1_pos;
-extern float des_m2_pos;
+// Motor command structure
+typedef struct{
+	uint8_t motor_id;
+	float des_pos;
+	float des_mode;
+	float des_v;
+	float des_kp;
+	float des_kd;
+	float des_tff;
+	bool new_pos;
+	bool new_sp_cmd; // New special command, 0:exit motor mode, 1:enter motor mode, 2:zero position
+	bool rdy_to_snd;
+	bool new_cont;
+}MotorCommand;
 
-// Vibrotactile commands
-extern float des_tscs_delay;
-extern float des_targ_freq;
-extern float des_vibro_zthresh;
+// Vibrotactile command structure
+typedef struct{
+	float des_tscs_delay;
+	float des_targ_freq;
+	float des_duty_cycle;
+	float des_vibro_zthresh;
+	bool new_delay;
+	bool new_freq;
+	bool new_duty_cycle;
+	bool new_zthresh;
+}VibroCommand;
 
-
-
-
-
+void motor_cmd_init(MotorCommand* m_cmd, uint8_t motor_id);
+void vibro_cmd_init(VibroCommand* vibro_cmd);
+void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx);
 
 
 #ifdef __cplusplus

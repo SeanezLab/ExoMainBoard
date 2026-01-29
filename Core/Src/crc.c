@@ -6,16 +6,19 @@
  */
 
 
-#include <data_tx_arrays.h>
+
 #include <limits.h>
 #include "crc.h"
 #include "circular_reading_buffer.h"
+#include "data_tx_arrays.h"
+#include "cmd_array.h"
+#include "structs.h"
 
 // Fill in Below for each new protocol ///////////////////////////////////////////////////////////////////////
 char *payload_entries[] = {"vibro_z_axis", "vibro_gpio","vibro_fft","vibro_state",\
-						"exo_busy","exo_fsm","exp_debug",\
-						"m1_pos","m1_vel","m1_accel","m1_ic","m1_tau","m1_kd","m1_ki",\
-						"m2_pos","m2_vel","m2_accel","m2_ic","m2_tau","m2_kd","m2_ki"};
+						"exo_busy","exo_fsm","exo_debug",\
+						"m1_pos","m1_vel","m1_accel","m1_ic","m1_tau","m1_kp","m1_kd",\
+						"m2_pos","m2_vel","m2_accel","m2_ic","m2_tau","m2_kp","m2_kd"};
 
 // Length of each entry, in bytes
 uint16_t payload_length_key[] = {100, 50, 128, 5,\
@@ -229,33 +232,92 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 		}
 		else if (condition == 1)
 		{
-			// This is the motor packet. float[packet_type, m1_pos, m2_pos]
-			memcpy(m1_pos, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
-			memcpy(m2_pos, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+			// This is the motor packet. Write it to the command struct, and set the flag. float[packet_type, m1_pos, m2_pos]
+			float incoming_m1_pos;
+			float incoming_m2_pos;
+			memcpy(&incoming_m1_pos, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
+			memcpy(&incoming_m2_pos, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+			// Only write the data to the command structure if it is new. Do nothing if it is old or matches the last motor set position.
+			// This is to avoid parsing repeat commands.
+			if (m1_cmd.des_pos != incoming_m1_pos)
+			{
+				m1_cmd.des_pos = incoming_m1_pos;
+				m1_cmd.new_pos = 1;
+			}
+
+			if (m2_cmd.des_pos != incoming_m2_pos)
+			{
+				m2_cmd.des_pos = incoming_m2_pos;
+				m2_cmd.new_pos = 1;
+			}
 		}
 		else if (condition == 2)
 		{
-			// This is the vibrotactile packet. float[packet_type, tSCS_delay, target_frequency, duty_cycle, z_axis_threshold]
-			// Create the temp floats to hold the data from the payload
-			float tscs_delay_float;
-			float target_frequency_float;
-			float duty_cycle_float;
-			float z_axis_thresh_float;
-			// Copy data to our temp floats
-			memcpy(&tscs_delay_float, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
-			memcpy(&target_frequency_float, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
-			memcpy(&duty_cycle_float, &(rdg_struct->buffer[payload_start+(3*sizeof(float))]), sizeof(float));
-			memcpy(&z_axis_thresh_float, &(rdg_struct->buffer[payload_start+(4*sizeof(float))]), sizeof(float));
-			// Truncate the data to match our storage arrays
-			uint8_t tscs_delay_bytes = clamp_u8_from_f32(tscs_delay_float);
-			uint8_t target_frequency_bytes = clamp_u8_from_f32(target_frequency_float);
-			uint8_t duty_cycle_bytes = clamp_u8_from_f32(duty_cycle_float);
-			int16_t z_axis_thresh_bytes = clamp_i16_from_f32(z_axis_thresh_float);
-			// Write the truncated data to the corresponding array
-			memcpy(&vibro_state[0],&tscs_delay_bytes,sizeof(tscs_delay_bytes));
-			memcpy(&vibro_state[1],&target_frequency_bytes,sizeof(target_frequency_bytes));
-			memcpy(&vibro_state[2],&duty_cycle_bytes,sizeof(duty_cycle_bytes));
-			memcpy(&vibro_state[3],&z_axis_thresh_bytes,sizeof(z_axis_thresh_bytes));
+			// This is the special motor packet. Write it to the command struct, and set the flag. float[packet_type, m1_mode, m2_mode]
+			// This is the motor packet. Write it to the command struct, and set the flag. float[packet_type, m1_pos, m2_pos]
+			float incoming_m1_mode;
+			float incoming_m2_mode;
+			memcpy(&incoming_m1_mode, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
+			memcpy(&incoming_m2_mode, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+			// Only write the data to the command structure if it is new. Do nothing if it is old or matches the last motor set position.
+			// This is to avoid parsing repeat commands.
+			if (m1_cmd.des_mode != incoming_m1_mode)
+			{
+				m1_cmd.des_mode = incoming_m1_mode;
+				m1_cmd.new_sp_cmd = 1;
+			}
+
+			if (m2_cmd.des_mode != incoming_m2_mode)
+			{
+				m2_cmd.des_mode = incoming_m2_mode;
+				m2_cmd.new_sp_cmd = 1;
+			}
+
+		}
+		else if (condition == 3)
+		{
+			// This is the vibrotactile command packet. Write it to the command struct, and set the flag.
+			memcpy(&(vibro_cmd.des_tscs_delay), &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
+			memcpy(&(vibro_cmd.des_targ_freq), &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+			memcpy(&(vibro_cmd.des_duty_cycle), &(rdg_struct->buffer[payload_start+(3*sizeof(float))]), sizeof(float));
+			memcpy(&(vibro_cmd.des_vibro_zthresh), &(rdg_struct->buffer[payload_start+(4*sizeof(float))]), sizeof(float));
+
+		}
+		else if (condition == 4)
+		{
+			// This is the motor packet. Write it to the command struct, and set the flag. float[packet_type, m1_pos, m2_pos]
+			float incoming_m1_v;
+			float incoming_m1_kp;
+			float incoming_m1_kd;
+			float incoming_m1_tff;
+			memcpy(&incoming_m1_v, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
+			memcpy(&incoming_m1_kp, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_m1_kd, &(rdg_struct->buffer[payload_start+(3*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_m1_tff, &(rdg_struct->buffer[payload_start+(4*sizeof(float))]), sizeof(float));
+			// Only write the data to the command structure if it is new. Do nothing if it is old or matches the last motor set position.
+			// This is to avoid parsing repeat commands.
+			if (m1_cmd.des_v != incoming_m1_v)
+			{
+				m1_cmd.des_v = incoming_m1_v;
+				m1_cmd.new_cont = 1;
+			}
+			if (m1_cmd.des_kp != incoming_m1_kp)
+			{
+				m1_cmd.des_kp = incoming_m1_kp;
+				m1_cmd.new_cont = 1;
+			}
+			if (m1_cmd.des_kd != incoming_m1_kd)
+			{
+				m1_cmd.des_kd = incoming_m1_kd;
+				m1_cmd.new_cont = 1;
+			}
+			if (m1_cmd.des_tff != incoming_m1_tff)
+			{
+				m1_cmd.des_tff = incoming_m1_tff;
+				m1_cmd.new_cont = 1;
+			}
+
+
 		}
 		else
 		{

@@ -36,16 +36,16 @@ extern FDCAN_HandleTypeDef hfdcan1;
 
 /* USER CODE BEGIN Private defines */
 
-#define P_MIN -95.5f
-#define P_MAX 95.5f
-#define V_MIN -30.0f
-#define V_MAX 30.0f
+#define P_MIN -12.5f
+#define P_MAX 12.5f
+#define V_MIN -65.0f
+#define V_MAX 65.0f
 #define KP_MIN 0.0f
 #define KP_MAX 500.0f
 #define KD_MIN 0.0f
 #define KD_MAX 5.0f
-#define I_MIN -18.0f
-#define I_MAX 18.0f
+#define I_MIN 0.0f
+#define I_MAX 33.0f
 
 /* USER CODE END Private defines */
 
@@ -58,13 +58,13 @@ typedef struct{
 	uint8_t data[6];
 	FDCAN_RxHeaderTypeDef rx_header;
 	FDCAN_FilterTypeDef filter;
-}CANRxMessage ;
+}CANRxMessage;
 
 typedef struct{
 	uint8_t id;
 	uint8_t data[8];
 	FDCAN_TxHeaderTypeDef tx_header;
-}CANTxMessage ;
+}CANTxMessage;
 
 void can_rx_init(CANRxMessage* msg);
 void can_tx_init(CANTxMessage* msg, uint32_t motor_id);

@@ -18,6 +18,7 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+#include "cmd_array.h"
 #include "fdcan.h"
 
 /* USER CODE BEGIN 0 */
@@ -228,7 +229,19 @@ void unpack_reply(CANRxMessage msg)
 
     if (id == 1)
     {
-    	memcpy(&m1_pos, )
+    	memcpy(m1_pos, &p, sizeof(float));
+    	memcpy(m1_vel, &v, sizeof(float));
+    	memcpy(m1_ic, &i, sizeof(float));
+    }
+    else if (id == 2)
+    {
+    	memcpy(m2_pos, &p, sizeof(float));
+		memcpy(m2_vel, &v, sizeof(float));
+		memcpy(m2_ic, &i, sizeof(float));
+    }
+    else
+    {
+    	return; //Unknown ID, do nothing.
     }
 
 }
@@ -236,15 +249,19 @@ void unpack_reply(CANRxMessage msg)
 // The RX Interrupt Callback. I don't know if I like keeping it here or in the dedicated interrupts file...
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan, uint32_t RxFifo0ITs)
 {
-    if (RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE)
+    if ((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) == 0)
     {
-
-        if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &(m_rx.rx_header), m_rx.data) == HAL_OK)
-        {
-            // handle message
-
-        }
+    	return;
     }
+    while (HAL_FDCAN_GetRxFifoFillLevel(hfdcan, FDCAN_RX_FIFO0))
+    {
+    	if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &(m_rx.rx_header), m_rx.data) == HAL_OK)
+			{
+				// handle message
+				unpack_reply(m_rx);
+			}
+    }
+
 }
 
 /* USER CODE END 1 */
