@@ -18,7 +18,6 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include "cmd_array.h"
 #include "fdcan.h"
 
 /* USER CODE BEGIN 0 */
@@ -202,7 +201,7 @@ void can_pack_tx(CANTxMessage* msg, float* p_des, float* v_des, float* kp_des, f
 	int p_int = float_to_uint(p_bnd, P_MIN, P_MAX, 16);
 	int v_int = float_to_uint(v_bnd, V_MIN, V_MAX, 12);
 	int kp_int = float_to_uint(kp_bnd, KP_MIN, KP_MAX, 12);
-	int kd_int = float_to_uint(kd_bnd, KP_MIN, KP_MAX, 12);
+	int kd_int = float_to_uint(kd_bnd, KD_MIN, KD_MAX, 12);
 	int t_int = float_to_uint(t_bnd, I_MIN, I_MAX, 12);
 	// Pack the commands into the CAN buffer
 	msg->data[0] = p_int>>8;

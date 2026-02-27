@@ -12,7 +12,6 @@
 #include "circular_reading_buffer.h"
 #include "data_tx_arrays.h"
 #include "cmd_array.h"
-#include "structs.h"
 
 // Fill in Below for each new protocol ///////////////////////////////////////////////////////////////////////
 char *payload_entries[] = {"vibro_z_axis", "vibro_gpio","vibro_fft","vibro_state",\
@@ -175,7 +174,7 @@ void crc_uart_send_data(const uint8_t* src,
     pkt[4 + PAYLOAD_BYTES + 1] = (uint8_t)(crc >> 8);
 
     // 5. Transmit over UART
-    HAL_UART_Transmit(huart, pkt, PKT_BYTES, HAL_MAX_DELAY);
+    HAL_UART_Transmit(huart, pkt, PKT_BYTES, 500); //HAL_MAX_DELAY
 }
 
 // Parses incoming information. This will be the most variable amongst implementations if reusing this file on other projects.

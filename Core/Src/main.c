@@ -20,6 +20,7 @@
 #include "main.h"
 #include "dma.h"
 #include "fdcan.h"
+#include "i2c.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -133,7 +134,9 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_FDCAN1_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
+
 
   // --- Enable Receiver Timeout (RTO) on USART1 ---
   // Choose a timeout value in bit-times / baud clocks.
@@ -175,6 +178,8 @@ int main(void)
   motor_cmd_init(&m1_cmd, 1);
   motor_cmd_init(&m2_cmd, 2);
   vibro_cmd_init(&vibro_cmd);
+  uint8_t tx_buf[8] = {0};
+
 
 
   FDCAN_ProtocolStatusTypeDef ps;
@@ -185,14 +190,18 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // Transmit states
-	  	  compile_data_sources(21,
-	  			  vibro_z_axis, vibro_gpio, vibro_fft, vibro_state,
-	  			  exo_busy, exo_fsm, exo_debug,
-	  			  m1_pos, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd,
-	  			  m2_pos, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd);
+	  // Query states
+	  check_i2c_dma();
 
-	  	  crc_uart_send_data(compiled_payload, &huart1);
+
+	  // Transmit states
+	  compile_data_sources(21,
+			  vibro_z_axis, vibro_gpio, vibro_fft, vibro_state,
+			  exo_busy, exo_fsm, exo_debug,
+			  m1_pos, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd,
+			  m2_pos, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd);
+
+	  crc_uart_send_data(compiled_payload, &huart1);
 
 	  // Handle Messages
 	  if (got_bt_msg == true)
@@ -201,28 +210,34 @@ int main(void)
 		  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
 		  flush_buffer(bt_dma_reader);
 		  got_bt_msg = false;
+//		  HAL_StatusTypeDef i2c_st = HAL_I2C_Master_Receive(&hi2c2, FOLLOWER_ADDR_HAL, i2c_rx_buf, 255, 100);
+//		  if (i2c_st != HAL_OK)
+//		  {
+//			  uint8_t fail = 1;
+//		  }
 	  }
+
 
 	  // Handle Commands
 	  handle_m_cmd(&m1_cmd, &m1_tx);
 
 	  // Send Commands
-	  if (m1_cmd.rdy_to_snd == 1)
-	  {
-		  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
-		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
-		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
-		  if (st != HAL_OK)
-		  {
-			  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
-			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
-			  Error_Handler();
-		  }
-		  m1_cmd.rdy_to_snd = 0;
-	  }
+//	  if (m1_cmd.rdy_to_snd == 1)
+//	  {
+//		  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
+//		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
+//		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
+//		  if (st != HAL_OK)
+//		  {
+//			  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
+//			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
+//			  Error_Handler();
+//		  }
+//		  m1_cmd.rdy_to_snd = 0;
+//	  }
 
 	  // Turn off flags
-	  HAL_Delay(1000);
+	  HAL_Delay(5);
 
 
 

@@ -1,9 +1,9 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file    fdcan.h
+  * @file    i2c.h
   * @brief   This file contains all the function prototypes for
-  *          the fdcan.c file
+  *          the i2c.c file
   ******************************************************************************
   * @attention
   *
@@ -18,8 +18,8 @@
   */
 /* USER CODE END Header */
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __FDCAN_H__
-#define __FDCAN_H__
+#ifndef __I2C_H__
+#define __I2C_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,47 +29,28 @@ extern "C" {
 #include "main.h"
 
 /* USER CODE BEGIN Includes */
-
+#include "structs.h"
 /* USER CODE END Includes */
 
-extern FDCAN_HandleTypeDef hfdcan1;
+extern I2C_HandleTypeDef hi2c2;
 
 /* USER CODE BEGIN Private defines */
+#define FOLLOWER_7BIT_ADDR 0X12
+#define FOLLOWER_ADDR_HAL (FOLLOWER_7BIT_ADDR << 1)
+#define I2C_RX_BYTES 100
 
-#define P_MIN -6.28f
-#define P_MAX 6.28f
-#define V_MIN -65.0f
-#define V_MAX 65.0f
-#define KP_MIN 0.0f
-#define KP_MAX 500.0f
-#define KD_MIN 0.0f
-#define KD_MAX 100.0f
-#define I_MIN -40.0f
-#define I_MAX 40.0f
+extern uint8_t i2c_rx_buf[];
+extern volatile uint8_t i2c_rx_done;
+extern volatile uint32_t i2c_rx_err;
+extern volatile HAL_StatusTypeDef i2c_rx_status;
 
 /* USER CODE END Private defines */
 
-void MX_FDCAN1_Init(void);
+void MX_I2C2_Init(void);
 
 /* USER CODE BEGIN Prototypes */
-
-typedef struct{
-	uint8_t id;
-	uint8_t data[6];
-	FDCAN_RxHeaderTypeDef rx_header;
-	FDCAN_FilterTypeDef filter;
-}CANRxMessage;
-
-typedef struct{
-	uint8_t id;
-	uint8_t data[8];
-	FDCAN_TxHeaderTypeDef tx_header;
-}CANTxMessage;
-
-void can_rx_init(CANRxMessage* msg);
-void can_tx_init(CANTxMessage* msg, uint32_t motor_id);
-void can_pack_tx(CANTxMessage* msg, float* p_des, float* v_des, float* kp, float* kd, float* t_ff);
-void can_unpack_rx(float* rx_reply);
+uint8_t check_i2c_dma(void);
+HAL_StatusTypeDef start_i2c_rx_dma(uint16_t nbytes);
 
 /* USER CODE END Prototypes */
 
@@ -77,5 +58,5 @@ void can_unpack_rx(float* rx_reply);
 }
 #endif
 
-#endif /* __FDCAN_H__ */
+#endif /* __I2C_H__ */
 
