@@ -191,7 +191,7 @@ int main(void)
   while (1)
   {
 	  // Query states
-	  check_i2c_dma();
+//	  check_i2c_dma();
 
 
 	  // Transmit states
@@ -201,7 +201,9 @@ int main(void)
 			  m1_pos, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd,
 			  m2_pos, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd);
 
+	  // Send data
 	  crc_uart_send_data(compiled_payload, &huart1);
+
 
 	  // Handle Messages
 	  if (got_bt_msg == true)
@@ -210,11 +212,7 @@ int main(void)
 		  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
 		  flush_buffer(bt_dma_reader);
 		  got_bt_msg = false;
-//		  HAL_StatusTypeDef i2c_st = HAL_I2C_Master_Receive(&hi2c2, FOLLOWER_ADDR_HAL, i2c_rx_buf, 255, 100);
-//		  if (i2c_st != HAL_OK)
-//		  {
-//			  uint8_t fail = 1;
-//		  }
+
 	  }
 
 
@@ -237,7 +235,7 @@ int main(void)
 //	  }
 
 	  // Turn off flags
-	  HAL_Delay(5);
+//	  HAL_Delay(5);
 
 
 

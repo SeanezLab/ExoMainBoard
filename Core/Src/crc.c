@@ -154,7 +154,7 @@ void crc_uart_send_data(const uint8_t* src,
 		UART_HandleTypeDef* huart)
 {
 
-	uint8_t pkt[PKT_BYTES];
+	static volatile uint8_t pkt[PKT_BYTES];
 
 	// 1. Header (preamble)
 	pkt[0] = 0x55;
@@ -174,7 +174,9 @@ void crc_uart_send_data(const uint8_t* src,
     pkt[4 + PAYLOAD_BYTES + 1] = (uint8_t)(crc >> 8);
 
     // 5. Transmit over UART
-    HAL_UART_Transmit(huart, pkt, PKT_BYTES, 500); //HAL_MAX_DELAY
+    huart1_try_send(pkt, PKT_BYTES);
+//    HAL_UART_Transmit(huart, pkt, PKT_BYTES, 500); //HAL_MAX_DELAY
+
 }
 
 // Parses incoming information. This will be the most variable amongst implementations if reusing this file on other projects.

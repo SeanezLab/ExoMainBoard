@@ -19,9 +19,9 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "i2c.h"
-#include "data_tx_arrays.h"
 
 /* USER CODE BEGIN 0 */
+#include "data_tx_arrays.h"
 
 
 uint8_t i2c_rx_buf[I2C_RX_BYTES] = {0};
