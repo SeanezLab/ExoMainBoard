@@ -37,6 +37,7 @@
 #include "structs.h"
 #include "data_tx_arrays.h"
 #include "crc.h"
+#include "test_signals.h"
 
 
 
@@ -193,6 +194,16 @@ int main(void)
 	  // Query states
 //	  check_i2c_dma();
 
+	  // Generate test signals
+//	  float cos_out = update_cos_signal();
+//	  memcpy(m1_pos, &cos_out, (size_t)sizeof(cos_out));
+
+	  increment_frame_counter();
+	  memcpy(m1_pos, &frame_counter, (size_t)sizeof(frame_counter));
+
+
+
+
 
 	  // Transmit states
 	  compile_data_sources(21,
@@ -203,6 +214,8 @@ int main(void)
 
 	  // Send data
 	  crc_uart_send_data(compiled_payload, &huart1);
+//	  char debug_msg[] = "1,2,3,4,5\r\n";
+//	  huart1_try_send((uint8_t*)debug_msg, (uint16_t)sizeof(debug_msg));
 
 
 	  // Handle Messages
