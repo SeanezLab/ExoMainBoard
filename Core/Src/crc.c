@@ -20,8 +20,7 @@ char *payload_entries[] = {"vibro_z_axis", "vibro_gpio","vibro_fft","vibro_state
 						"m2_pos","m2_vel","m2_accel","m2_ic","m2_tau","m2_kp","m2_kd"};
 
 // Length of each entry, in bytes
-uint16_t payload_length_key[] = {100, 50, 128, 5,\
-								1, 1, 1,\
+uint16_t payload_length_key[] = {1, 1, 1,\
 								4, 4, 4, 4, 4, 4, 4,\
 								4, 4, 4, 4, 4, 4, 4};
 
@@ -173,9 +172,13 @@ void crc_uart_send_data(const uint8_t* src,
     pkt[4 + PAYLOAD_BYTES]     = (uint8_t)(crc & 0xFF);
     pkt[4 + PAYLOAD_BYTES + 1] = (uint8_t)(crc >> 8);
 
-    // 5. Transmit over UART
-//    huart1_try_send(pkt, PKT_BYTES);
-    HAL_UART_Transmit(huart, pkt, PKT_BYTES, HAL_MAX_DELAY); //HAL_MAX_DELAY
+    // 5. Add 2-byte footer
+    pkt[4 + PAYLOAD_BYTES + 2] = 0x6E;
+    pkt[4 + PAYLOAD_BYTES + 3] = 0x2B;
+
+    // 6. Transmit over UART
+    huart1_try_send(pkt, PKT_BYTES);
+//    HAL_UART_Transmit(huart, pkt, PKT_BYTES, HAL_MAX_DELAY); //HAL_MAX_DELAY
 
 }
 
@@ -325,6 +328,10 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 			// Packet is of unknown mode.
 			return;
 		}
+	}
+	else
+	{
+		uint8_t crc_fail = 1;
 	}
 	return;
 

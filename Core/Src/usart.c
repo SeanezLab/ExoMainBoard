@@ -300,7 +300,7 @@ void huart1_try_send(uint8_t* msg, uint16_t msg_size)
 		huart1_tx_complete = 0;
 		HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
 		HAL_StatusTypeDef st = HAL_UART_Transmit_DMA(&huart1, msg, msg_size);
-//		HAL_Delay(35);
+
 		if (st != HAL_OK)
 		{
 			huart1_tx_complete = 1;

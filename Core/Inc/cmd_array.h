@@ -21,8 +21,8 @@ extern "C" {
 
 // Motor 1 control  constants (Do not change unless you've validated the tuning!)
 #define DES_M1_V .01f
-#define DES_M1_KP 20.0f
-#define DES_M1_KD .75f
+#define DES_M1_KP 500.0f
+#define DES_M1_KD 40.0f
 #define DES_M1_TFF 0.0f
 
 // Exoskeleton desired state/mode
@@ -41,6 +41,7 @@ typedef struct{
 	bool new_sp_cmd; // New special command, 0:exit motor mode, 1:enter motor mode, 2:zero position
 	bool rdy_to_snd;
 	bool new_cont;
+	bool new_query;
 }MotorCommand;
 
 // Vibrotactile command structure

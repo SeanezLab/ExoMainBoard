@@ -21,13 +21,14 @@ void motor_cmd_init(MotorCommand* m_cmd, uint8_t motor_id)
 	m_cmd->des_pos = 0; //Initialize with all zeros
 	m_cmd->des_mode = 0; //Start with the motor disabled
 	m_cmd->des_v = 0;
-	m_cmd->des_kp = 1;
-	m_cmd->des_kd = 0;
+	m_cmd->des_kp = DES_M1_KP;
+	m_cmd->des_kd = DES_M1_KD;
 	m_cmd->des_tff = 0;
 	m_cmd->new_pos = 0; //Start with the new position flag off
 	m_cmd->new_sp_cmd = 1; //Start with the new command on so we can set the motor to disable on startup
 	m_cmd->rdy_to_snd = 1;
 	m_cmd->new_cont = 0;
+	m_cmd->new_query = 0;
 }
 
 void vibro_cmd_init(VibroCommand* vibro_cmd)
@@ -106,6 +107,19 @@ void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx)
 			// Might have to change this to be instance specific if the motors have different control weights
 			can_pack_tx(m_tx, &(m_cmd->des_pos), &(m_cmd->des_v), &(m_cmd->des_kp), &(m_cmd->des_kd), &(m_cmd->des_tff));
 			m_cmd->new_cont = 0;
+			m_cmd->rdy_to_snd = 1;
+		}
+	if (m_cmd->new_query == 1)
+		{
+			m_tx->data[0] = 0xff;
+			m_tx->data[1] = 0xff;
+			m_tx->data[2] = 0xff;
+			m_tx->data[3] = 0xff;
+			m_tx->data[4] = 0xff;
+			m_tx->data[5] = 0xff;
+			m_tx->data[6] = 0xff;
+			m_tx->data[7] = 0xff;
+			m_cmd->new_query = 0;
 			m_cmd->rdy_to_snd = 1;
 		}
 }

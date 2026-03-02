@@ -193,29 +193,51 @@ int main(void)
   {
 	  // Query states
 //	  check_i2c_dma();
+	  // Query the Motor states
+	  m1_cmd.new_query = 1;
+	  handle_m_cmd(&m1_cmd, &m1_tx);
+	  if (m1_cmd.rdy_to_snd == 1)
+	  {
+		  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
+		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
+		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
+		  if (st != HAL_OK)
+		  {
+			  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
+			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
+			  Error_Handler();
+		  }
+		  m1_cmd.rdy_to_snd = 0;
+	  }
+
+
 
 	  // Generate test signals
 //	  float cos_out = update_cos_signal();
 //	  memcpy(m1_pos, &cos_out, (size_t)sizeof(cos_out));
 
-	  increment_frame_counter();
-	  memcpy(m1_pos, &frame_counter, (size_t)sizeof(frame_counter));
+//	  increment_frame_counter();
+//	  memcpy(m1_pos, &frame_counter, (size_t)sizeof(frame_counter));
 
 
 
 
 
 	  // Transmit states
-	  compile_data_sources(21,
-			  vibro_z_axis, vibro_gpio, vibro_fft, vibro_state,
+	  compile_data_sources(17,
 			  exo_busy, exo_fsm, exo_debug,
 			  m1_pos, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd,
 			  m2_pos, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd);
 
 	  // Send data
-	  crc_uart_send_data(compiled_payload, &huart1);
-//	  char debug_msg[] = "1,2,3,4,5\r\n";
-//	  huart1_try_send((uint8_t*)debug_msg, (uint16_t)sizeof(debug_msg));
+	  if (frame_counter < 1001)
+	  {
+		  crc_uart_send_data(compiled_payload, &huart1);
+	  }
+	  else
+	  {
+		  uint8_t done = 1;
+	  }
 
 
 	  // Handle Messages
@@ -233,22 +255,22 @@ int main(void)
 	  handle_m_cmd(&m1_cmd, &m1_tx);
 
 	  // Send Commands
-//	  if (m1_cmd.rdy_to_snd == 1)
-//	  {
-//		  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
-//		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
-//		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
-//		  if (st != HAL_OK)
-//		  {
-//			  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
-//			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
-//			  Error_Handler();
-//		  }
-//		  m1_cmd.rdy_to_snd = 0;
-//	  }
+	  if (m1_cmd.rdy_to_snd == 1)
+	  {
+		  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
+		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
+		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
+		  if (st != HAL_OK)
+		  {
+			  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
+			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
+			  Error_Handler();
+		  }
+		  m1_cmd.rdy_to_snd = 0;
+	  }
 
 	  // Turn off flags
-//	  HAL_Delay(5);
+	  HAL_Delay(15);
 
 
 

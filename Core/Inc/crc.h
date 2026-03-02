@@ -24,6 +24,7 @@ extern "C" {
 // Two byte protocol
 #define LEN_FIELD_BYTES 2
 #define HEADER_BYTES 2 // This was 3?!
+#define FOOTER_BYTES 2
 #define CRC_BYTES 2
 #define RX_BUF_LEN 50 // Modify this field if you expect to receive packets >50 bytes.
 
@@ -32,14 +33,14 @@ extern "C" {
 
 extern uint16_t payload_length_key[]; // Fill out in source file. Array that tell the CRC packager how many bytes are used for each data field
 extern char *payload_entries[]; // Fill out in source file. Human readable list of each entry (Not necessary for the CRC packager but helps me remember).
-#define PAYLOAD_BYTES 342 // Total number of Payload Bytes (Be sure to calculate this correctly! Its the sum of payload_length_key)
+#define PAYLOAD_BYTES 64 // Total number of Payload Bytes (Be sure to calculate this correctly! Its the sum of payload_length_key)
 
 // End of Fill out //////////////////////////////////////////////////////////////////////////////////////////
 
 extern uint8_t rx_buffer[];
 extern uint8_t compiled_payload[];
 #define PAYLOAD_DATA_FIELDS sizeof(payload_length_key) / sizeof(payload_length_key[0]) // Does not need to be changed. Number of Payload Data Fields.
-#define PKT_BYTES (HEADER_BYTES + LEN_FIELD_BYTES + PAYLOAD_BYTES + CRC_BYTES)
+#define PKT_BYTES (HEADER_BYTES + LEN_FIELD_BYTES + PAYLOAD_BYTES + CRC_BYTES + FOOTER_BYTES)
 
 
 
