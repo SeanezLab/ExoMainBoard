@@ -21,8 +21,9 @@ char *payload_entries[] = {"vibro_z_axis", "vibro_gpio","vibro_fft","vibro_state
 
 // Length of each entry, in bytes
 uint16_t payload_length_key[] = {1, 1, 1,\
-								4, 4, 4, 4, 4, 4, 4,\
-								4, 4, 4, 4, 4, 4, 4};
+								4, 4, 4, 4, 4, 4, 4, 4, 1,\
+								4, 4, 4, 4, 4, 4, 4, 4, 1,\
+								1};
 
 // End of Fill out //////////////////////////////////////////////////////////////////////////////////////////
 

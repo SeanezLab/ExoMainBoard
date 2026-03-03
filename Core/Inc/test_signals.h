@@ -12,7 +12,9 @@
 extern "C" {
 #endif
 
-extern float frame_counter;
+#include <stdint.h>
+
+extern uint8_t frame_counter;
 void increment_cos_counter(void);
 void increment_frame_counter(void);
 float update_cos_signal(void);

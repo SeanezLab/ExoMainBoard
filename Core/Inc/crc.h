@@ -33,7 +33,7 @@ extern "C" {
 
 extern uint16_t payload_length_key[]; // Fill out in source file. Array that tell the CRC packager how many bytes are used for each data field
 extern char *payload_entries[]; // Fill out in source file. Human readable list of each entry (Not necessary for the CRC packager but helps me remember).
-#define PAYLOAD_BYTES 64 // Total number of Payload Bytes (Be sure to calculate this correctly! Its the sum of payload_length_key)
+#define PAYLOAD_BYTES 70 // Total number of Payload Bytes (Be sure to calculate this correctly! Its the sum of payload_length_key)
 
 // End of Fill out //////////////////////////////////////////////////////////////////////////////////////////
 

@@ -43,6 +43,7 @@ void vibro_cmd_init(VibroCommand* vibro_cmd)
 	vibro_cmd->new_zthresh = 0;
 }
 
+
 void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx)
 {
 	if (m_cmd->new_pos == 1)
@@ -122,4 +123,16 @@ void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx)
 			m_cmd->new_query = 0;
 			m_cmd->rdy_to_snd = 1;
 		}
+
+	if (m_cmd->rdy_to_snd == 1)
+		{
+		HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m_tx->tx_header), m_tx->data);
+		  if (st != HAL_OK)
+		  {
+			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
+			  Error_Handler();
+		  }
+		  m_cmd->rdy_to_snd = 0;
+		}
+
 }

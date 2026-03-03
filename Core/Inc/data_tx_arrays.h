@@ -24,20 +24,29 @@ extern uint8_t exo_fsm[];
 extern uint8_t exo_debug[];
 // Motor drive 1 data (knee)
 extern uint8_t m1_pos[];
+extern uint8_t m1_des[];
 extern uint8_t m1_vel[];
 extern uint8_t m1_accel[];
 extern uint8_t m1_ic[];
 extern uint8_t m1_tau[];
 extern uint8_t m1_kp[];
 extern uint8_t m1_kd[];
+extern uint8_t m1_mode[];
 // Motor drive 2 data (ankle)
 extern uint8_t m2_pos[];
+extern uint8_t m2_des[];
 extern uint8_t m2_vel[];
 extern uint8_t m2_accel[];
 extern uint8_t m2_ic[];
 extern uint8_t m2_tau[];
 extern uint8_t m2_kp[];
 extern uint8_t m2_kd[];
+extern uint8_t m2_mode[];
+// Debugging transmits
+extern uint8_t frame[];
+extern uint8_t debug[];
+
+
 
 
 #ifdef __cplusplus

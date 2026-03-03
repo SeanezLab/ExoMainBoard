@@ -5,13 +5,14 @@
  *      Author: k.rodolfo
  */
 
+
 #include "test_signals.h"
 #include "math.h"
 
 #define PI 3.14F
 
 float cos_counter = 0;
-float frame_counter = 0;
+uint8_t frame_counter = 0;
 
 
 void increment_cos_counter(void)
@@ -22,13 +23,13 @@ void increment_cos_counter(void)
 	}
 	else
 	{
-		cos_counter += .1F;
+		cos_counter += 0.01F;
 	}
 }
 
 void increment_frame_counter(void)
 {
-	if (frame_counter >= 65535)
+	if (frame_counter >= 255)
 	{
 		frame_counter = 0;
 	}

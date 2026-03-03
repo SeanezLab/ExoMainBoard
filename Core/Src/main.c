@@ -168,12 +168,14 @@ int main(void)
   // Start the CAN bus
   HAL_FDCAN_Start(&hfdcan1);
 
+
   // Activate notifications
   HAL_FDCAN_ActivateNotification(
       &hfdcan1,
       FDCAN_IT_RX_FIFO0_NEW_MESSAGE,
       0
   );
+
 
   // Initialize the Command structures
   motor_cmd_init(&m1_cmd, 1);
@@ -197,53 +199,27 @@ int main(void)
 	  m2_cmd.new_query = 1;
 	  handle_m_cmd(&m1_cmd, &m1_tx);
 	  handle_m_cmd(&m2_cmd, &m2_tx);
-	  if (m1_cmd.rdy_to_snd == 1)
-	  {
-		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
-		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
-		  if (st != HAL_OK)
-		  {
-			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
-			  Error_Handler();
-		  }
-		  m1_cmd.rdy_to_snd = 0;
-	  }
-	  if (m2_cmd.rdy_to_snd == 1)
-	  {
-		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m2_tx.tx_header), m2_tx.data);
-		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
-		  if (st != HAL_OK)
-		  {
-			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
-			  Error_Handler();
-		  }
-		  m2_cmd.rdy_to_snd = 0;
-	  }
 
 
 	  // Generate test signals
-//	  float cos_out = update_cos_signal();
-//	  memcpy(m1_pos, &cos_out, (size_t)sizeof(cos_out));
+	  float cos_out = update_cos_signal();
+	  m1_cmd.des_pos = cos_out;
+	  m1_cmd.new_pos = 1;
+//	  memcpy(&m1_cmd.des_pos, &cos_out, (size_t)sizeof(cos_out));
 
 //	  increment_frame_counter();
-//	  memcpy(m1_pos, &frame_counter, (size_t)sizeof(frame_counter));
+	  memcpy(frame, &frame_counter, (size_t)sizeof(frame_counter));
 
 
 	  // Transmit states
-	  compile_data_sources(17,
+	  compile_data_sources(22,
 			  exo_busy, exo_fsm, exo_debug,
-			  m1_pos, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd,
-			  m2_pos, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd);
+			  m1_pos, m1_des, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd, m1_mode,
+			  m2_pos, m2_des, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd, m2_mode,
+			  frame);
 
 	  // Send data
-	  if (frame_counter < 1001)
-	  {
-		  crc_uart_send_data(compiled_payload, &huart1);
-	  }
-	  else
-	  {
-		  uint8_t done = 1;
-	  }
+	  crc_uart_send_data(compiled_payload, &huart1);
 
 
 	  // Handle Messages
@@ -261,29 +237,6 @@ int main(void)
 	  handle_m_cmd(&m1_cmd, &m1_tx);
 	  handle_m_cmd(&m2_cmd, &m2_tx);
 
-	  // Send Commands
-	  if (m1_cmd.rdy_to_snd == 1)
-	  {
-		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
-		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
-		  if (st != HAL_OK)
-		  {
-			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
-			  Error_Handler();
-		  }
-		  m1_cmd.rdy_to_snd = 0;
-	  }
-	  if (m2_cmd.rdy_to_snd == 1)
-	  {
-		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m2_tx.tx_header), m2_tx.data);
-		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
-		  if (st != HAL_OK)
-		  {
-			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
-			  Error_Handler();
-		  }
-		  m2_cmd.rdy_to_snd = 0;
-	  }
 
 	  // Turn off flags
 	  HAL_Delay(15);
