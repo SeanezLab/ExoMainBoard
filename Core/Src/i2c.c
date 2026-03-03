@@ -201,7 +201,7 @@ uint8_t check_i2c_dma(void)
 	{
 		if (i2c_rx_status == HAL_OK)
 		{
-			memcpy(vibro_z_axis, i2c_rx_buf, (size_t)sizeof(i2c_rx_buf));
+			//memcpy(vibro_z_axis, i2c_rx_buf, (size_t)sizeof(i2c_rx_buf));
 		}
 	}
 

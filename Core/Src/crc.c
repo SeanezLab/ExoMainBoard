@@ -237,90 +237,77 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 		else if (condition == 1)
 		{
 			// This is the motor packet. Write it to the command struct, and set the flag. float[packet_type, m1_pos, m2_pos]
-			float incoming_m1_pos;
-			float incoming_m2_pos;
-			memcpy(&incoming_m1_pos, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
-			memcpy(&incoming_m2_pos, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
-			// Only write the data to the command structure if it is new. Do nothing if it is old or matches the last motor set position.
-			// This is to avoid parsing repeat commands.
-			if (m1_cmd.des_pos != incoming_m1_pos)
+			float incoming_m_id;
+			float incoming_m_pos;
+			memcpy(&incoming_m_id, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
+			memcpy(&incoming_m_pos, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+
+			if (incoming_m_id == 1)
 			{
-				m1_cmd.des_pos = incoming_m1_pos;
+				m1_cmd.des_pos = incoming_m_pos;
 				m1_cmd.new_pos = 1;
 			}
 
-			if (m2_cmd.des_pos != incoming_m2_pos)
+			if (incoming_m_id == 2)
 			{
-				m2_cmd.des_pos = incoming_m2_pos;
+
+				m2_cmd.des_pos = incoming_m_pos;
 				m2_cmd.new_pos = 1;
 			}
+
 		}
 		else if (condition == 2)
 		{
 			// This is the special motor packet. Write it to the command struct, and set the flag. float[packet_type, m1_mode, m2_mode]
 			// This is the motor packet. Write it to the command struct, and set the flag. float[packet_type, m1_pos, m2_pos]
-			float incoming_m1_mode;
-			float incoming_m2_mode;
-			memcpy(&incoming_m1_mode, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
-			memcpy(&incoming_m2_mode, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+			float incoming_m_id;
+			float incoming_m_mode;
+			memcpy(&incoming_m_id, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
+			memcpy(&incoming_m_mode, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
 			// Only write the data to the command structure if it is new. Do nothing if it is old or matches the last motor set position.
 			// This is to avoid parsing repeat commands.
-			if (m1_cmd.des_mode != incoming_m1_mode)
+			if (incoming_m_id == 1)
 			{
-				m1_cmd.des_mode = incoming_m1_mode;
+				m1_cmd.des_mode = incoming_m_mode;
 				m1_cmd.new_sp_cmd = 1;
 			}
 
-			if (m2_cmd.des_mode != incoming_m2_mode)
+			if (incoming_m_id == 2)
 			{
-				m2_cmd.des_mode = incoming_m2_mode;
+				m2_cmd.des_mode = incoming_m_mode;
 				m2_cmd.new_sp_cmd = 1;
 			}
 
 		}
 		else if (condition == 3)
 		{
-			// This is the vibrotactile command packet. Write it to the command struct, and set the flag.
-			memcpy(&(vibro_cmd.des_tscs_delay), &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
-			memcpy(&(vibro_cmd.des_targ_freq), &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
-			memcpy(&(vibro_cmd.des_duty_cycle), &(rdg_struct->buffer[payload_start+(3*sizeof(float))]), sizeof(float));
-			memcpy(&(vibro_cmd.des_vibro_zthresh), &(rdg_struct->buffer[payload_start+(4*sizeof(float))]), sizeof(float));
-
-		}
-		else if (condition == 4)
-		{
 			// This is the motor packet. Write it to the command struct, and set the flag. float[packet_type, m1_pos, m2_pos]
-			float incoming_m1_v;
-			float incoming_m1_kp;
-			float incoming_m1_kd;
-			float incoming_m1_tff;
-			memcpy(&incoming_m1_v, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
-			memcpy(&incoming_m1_kp, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
-			memcpy(&incoming_m1_kd, &(rdg_struct->buffer[payload_start+(3*sizeof(float))]), sizeof(float));
-			memcpy(&incoming_m1_tff, &(rdg_struct->buffer[payload_start+(4*sizeof(float))]), sizeof(float));
-			// Only write the data to the command structure if it is new. Do nothing if it is old or matches the last motor set position.
-			// This is to avoid parsing repeat commands.
-			if (m1_cmd.des_v != incoming_m1_v)
+			float incoming_m_id;
+			float incoming_m_v;
+			float incoming_m_kp;
+			float incoming_m_kd;
+			float incoming_m_tff;
+			memcpy(&incoming_m_id, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
+			memcpy(&incoming_m_v, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_m_kp, &(rdg_struct->buffer[payload_start+(3*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_m_kd, &(rdg_struct->buffer[payload_start+(4*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_m_tff, &(rdg_struct->buffer[payload_start+(5*sizeof(float))]), sizeof(float));
+			if (incoming_m_id == 1)
 			{
-				m1_cmd.des_v = incoming_m1_v;
+				m1_cmd.des_v = incoming_m_v;
+				m1_cmd.des_kp = incoming_m_kp;
+				m1_cmd.des_kd = incoming_m_kd;
+				m1_cmd.des_tff = incoming_m_tff;
 				m1_cmd.new_cont = 1;
 			}
-			if (m1_cmd.des_kp != incoming_m1_kp)
+			if (incoming_m_id == 2)
 			{
-				m1_cmd.des_kp = incoming_m1_kp;
-				m1_cmd.new_cont = 1;
+				m2_cmd.des_v = incoming_m_v;
+				m2_cmd.des_kp = incoming_m_kp;
+				m2_cmd.des_kd = incoming_m_kd;
+				m2_cmd.des_tff = incoming_m_tff;
+				m2_cmd.new_cont = 1;
 			}
-			if (m1_cmd.des_kd != incoming_m1_kd)
-			{
-				m1_cmd.des_kd = incoming_m1_kd;
-				m1_cmd.new_cont = 1;
-			}
-			if (m1_cmd.des_tff != incoming_m1_tff)
-			{
-				m1_cmd.des_tff = incoming_m1_tff;
-				m1_cmd.new_cont = 1;
-			}
-
 
 		}
 		else

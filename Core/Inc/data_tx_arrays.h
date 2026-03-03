@@ -17,11 +17,7 @@ extern "C" {
 
 // Holds the data array variable for better readability
 
-// Vibrotactile stimulator data
-extern uint8_t vibro_z_axis[];
-extern uint8_t vibro_gpio[];
-extern uint8_t vibro_fft[];
-extern uint8_t vibro_state[];
+
 // Exoskeleton main control board data
 extern uint8_t exo_busy[];
 extern uint8_t exo_fsm[];

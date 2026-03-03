@@ -179,7 +179,6 @@ int main(void)
   motor_cmd_init(&m1_cmd, 1);
   motor_cmd_init(&m2_cmd, 2);
   vibro_cmd_init(&vibro_cmd);
-  uint8_t tx_buf[8] = {0};
 
 
 
@@ -195,21 +194,31 @@ int main(void)
 //	  check_i2c_dma();
 	  // Query the Motor states
 	  m1_cmd.new_query = 1;
+	  m2_cmd.new_query = 1;
 	  handle_m_cmd(&m1_cmd, &m1_tx);
+	  handle_m_cmd(&m2_cmd, &m2_tx);
 	  if (m1_cmd.rdy_to_snd == 1)
 	  {
-		  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
 		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
 		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
 		  if (st != HAL_OK)
 		  {
-			  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
 			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
 			  Error_Handler();
 		  }
 		  m1_cmd.rdy_to_snd = 0;
 	  }
-
+	  if (m2_cmd.rdy_to_snd == 1)
+	  {
+		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m2_tx.tx_header), m2_tx.data);
+		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
+		  if (st != HAL_OK)
+		  {
+			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
+			  Error_Handler();
+		  }
+		  m2_cmd.rdy_to_snd = 0;
+	  }
 
 
 	  // Generate test signals
@@ -218,9 +227,6 @@ int main(void)
 
 //	  increment_frame_counter();
 //	  memcpy(m1_pos, &frame_counter, (size_t)sizeof(frame_counter));
-
-
-
 
 
 	  // Transmit states
@@ -253,20 +259,30 @@ int main(void)
 
 	  // Handle Commands
 	  handle_m_cmd(&m1_cmd, &m1_tx);
+	  handle_m_cmd(&m2_cmd, &m2_tx);
 
 	  // Send Commands
 	  if (m1_cmd.rdy_to_snd == 1)
 	  {
-		  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
 		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m1_tx.tx_header), m1_tx.data);
 		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
 		  if (st != HAL_OK)
 		  {
-			  uint32_t free = HAL_FDCAN_GetTxFifoFreeLevel(&hfdcan1);
 			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
 			  Error_Handler();
 		  }
 		  m1_cmd.rdy_to_snd = 0;
+	  }
+	  if (m2_cmd.rdy_to_snd == 1)
+	  {
+		  HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m2_tx.tx_header), m2_tx.data);
+		  HAL_FDCAN_GetProtocolStatus(&hfdcan1, &ps);
+		  if (st != HAL_OK)
+		  {
+			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
+			  Error_Handler();
+		  }
+		  m2_cmd.rdy_to_snd = 0;
 	  }
 
 	  // Turn off flags
