@@ -135,7 +135,7 @@ void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx)
 		  if (st != HAL_OK)
 		  {
 			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
-			  Error_Handler();
+//			  Error_Handler();
 		  }
 		  m_cmd->rdy_to_snd = 0;
 		}

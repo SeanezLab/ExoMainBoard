@@ -11,6 +11,7 @@
 #include "cmd_array.h"
 #include "data_tx_arrays.h"
 #include <string.h>
+#include <math.h>
 
 void motor_trajectory_init(MotorTrajectory* m_traj, uint8_t motor_id)
 {
@@ -18,11 +19,15 @@ void motor_trajectory_init(MotorTrajectory* m_traj, uint8_t motor_id)
 	m_traj->traj_mode = 0; //0 is idle
 	m_traj->cmd_idx = 0;
 	memset(m_traj->pos_array, 0, sizeof(m_traj->pos_array));
-	m_traj->t_mult = 0;
-	m_traj->des_freq;
-	m_traj->theta_target;
-	m_traj->theta_current;
-	m_traj->time_to_targ; // In ms;
+	m_traj->t_mult = 5;
+	m_traj->des_freq = 1;
+	m_traj->theta_target = 0;
+	m_traj->time_to_targ = 10; // In sec
+	m_traj->joint_inertia_ff;
+	m_traj->gravity_ff = 0;
+	m_traj->dyn_frct_ff = 0;
+	m_traj->stat_frct_ff = 1.5;
+	m_traj->trans_v_ff = 0.1;
 	m_traj->theta = 0;
 	m_traj->theta_d = 0;
 	m_traj->theta_dd = 0;
@@ -50,7 +55,15 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 	switch(m_traj->traj_mode)
 	{
 	case 0:
+//		if (m_traj->new_traj_req == true)
+//		{
+//			m_traj->new_traj_req = false;
+//			m_cmd->des_tff = 0;
+//			m_cmd->new_cont = 1;
+//			return;
+//		}
 		return;
+
 	case 1:// Sinusoid
 		m_traj->theta = traj_cos_theta(m_traj->des_freq, traj_clock);
 		m_traj->theta_d = traj_cos_theta_dot(m_traj->des_freq, traj_clock);
@@ -64,7 +77,7 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		{
 			m_traj->new_traj_req = false;
 			float dt = 0.005f * m_traj->t_mult;
-			minjerk_start(&(m_traj->jerk_traj), m_traj->theta_current, m_traj->theta_target, m_traj->time_to_targ, dt);
+			minjerk_start(&(m_traj->jerk_traj), m_cmd->des_pos, m_traj->theta_target, m_traj->time_to_targ, dt);
 			minjerk_step(&(m_traj->jerk_traj), &(m_traj->theta), &(m_traj->theta_d), &(m_traj->theta_dd));
 		}
 		else if (m_traj->jerk_traj.active == true)
@@ -72,8 +85,10 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 			minjerk_step(&(m_traj->jerk_traj), &(m_traj->theta), &(m_traj->theta_d), &(m_traj->theta_dd));
 		}
 		memcpy(m1_des, &(m_traj->theta), sizeof(float));
+		float t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
 		m_cmd->des_pos = m_traj->theta;
 		m_cmd->des_v = m_traj->theta_d;
+		m_cmd->des_tff = t_ff;
 		m_cmd->new_pos = 1;
 		m_cmd->new_cont = 1;
 
@@ -142,4 +157,20 @@ bool minjerk_step(MinJerkTraj* tr, float* theta, float* theta_dot, float* theta_
     }
 
     return true;
+}
+
+// Smooth sign function using tanh(v/v0)
+// v0 sets how quickly it transitions near 0 (units: position_units/s)
+float smooth_sign(float v, float v0)
+{
+    // avoid divide-by-zero
+    if (v0 < 1e-6f) v0 = 1e-6f;
+    return tanhf(v / v0);   // in [-1, 1]
+}
+
+// Friction feedforward torque model:
+// tau_ff = b * v_des + tau_c * tanh(v_des / v0)
+float friction_ff(float v_des, float b_visc, float tau_breakaway, float v0)
+{
+    return b_visc * v_des + tau_breakaway * smooth_sign(v_des, v0);
 }

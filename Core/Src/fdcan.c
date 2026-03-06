@@ -233,7 +233,9 @@ void unpack_reply(CANRxMessage msg)
     	memcpy(m1_vel, &v, sizeof(float));
     	memcpy(m1_ic, &i, sizeof(float));
     	//and copy to the motor trajectory manager
+    	float theta_d_measured = p - m1_traj.theta_current;
     	memcpy(&(m1_traj.theta_current), &p, sizeof(float));
+    	memcpy(&(m1_traj.theta_d_measured), &theta_d_measured, sizeof(float));
     }
     else if (id == 2)
     {
@@ -241,7 +243,9 @@ void unpack_reply(CANRxMessage msg)
 		memcpy(m2_vel, &v, sizeof(float));
 		memcpy(m2_ic, &i, sizeof(float));
 		//and copy to the motor trajectory manager
+		float theta_d_measured = p - m2_traj.theta_current;
 		memcpy(&(m2_traj.theta_current), &p, sizeof(float));
+		memcpy(&(m2_traj.theta_d_measured), &theta_d_measured, sizeof(float));
     }
     else
     {

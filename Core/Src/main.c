@@ -266,7 +266,7 @@ void SystemClock_Config(void)
 void run_motor_loop(void)
 {
 	// Update the clock
-	traj_clock += 0.005F;
+//	traj_clock += 0.005F;
 	// Update trajectory
 	advance_traj(&m1_traj, &m1_cmd);
 	// Generate test signals

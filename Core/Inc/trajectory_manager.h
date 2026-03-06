@@ -36,11 +36,13 @@ typedef struct{
 	uint8_t des_freq; // How much to scale the input frequency
 	float theta_target;
 	float theta_current;
+	float theta_d_measured;
 	float time_to_targ; // In sec;
 	float joint_inertia_ff;
 	float gravity_ff;
-	float dyn_frct_ff;
-	float stat_frct_ff;
+	float dyn_frct_ff; //torque(nm)/(rad/s)
+	float stat_frct_ff;//breakway torque(nm)
+	float trans_v_ff;//smoothing speed/(rad/s)
 	float theta;
 	float theta_d;
 	float theta_dd;
@@ -56,6 +58,8 @@ void advance_traj(MotorTrajectory* m_traj, MotorCommand* m_cmd);
 void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd);
 void minjerk_start(MinJerkTraj* tr, float theta0, float thetaf, float T, float dt);
 bool minjerk_step(MinJerkTraj* tr, float* theta, float* theta_dot, float* theta_ddot);
+float smooth_sign(float v, float v0);
+float friction_ff(float v_des, float b_visc, float tau_breakaway, float v0);
 
 
 #ifdef __cplusplus

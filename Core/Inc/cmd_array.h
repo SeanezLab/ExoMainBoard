@@ -20,9 +20,9 @@ extern "C" {
 #include "fdcan.h"
 
 // Motor 1 control  constants (Do not change unless you've validated the tuning!)
-#define DES_M1_V .01f
-#define DES_M1_KP 500.0f
-#define DES_M1_KD 10.0f
+#define DES_M1_V 0.0f
+#define DES_M1_KP 120.0f
+#define DES_M1_KD 5.0f
 #define DES_M1_TFF 0.0f
 
 // Exoskeleton desired state/mode

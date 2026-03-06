@@ -319,12 +319,23 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 			float incoming_freq;
 			float incoming_des_pos;
 			float incoming_des_time;
+			float incoming_joint_inertia;
+			float incoming_grav;
+			float incoming_dyn_frict;
+			float incoming_stc_frict;
+			float incoming_trans_v;
+
 			memcpy(&incoming_m_id, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
 			memcpy(&incoming_traj_mode, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
 			memcpy(&incoming_t_mult, &(rdg_struct->buffer[payload_start+(3*sizeof(float))]), sizeof(float));
 			memcpy(&incoming_freq, &(rdg_struct->buffer[payload_start+(4*sizeof(float))]), sizeof(float));
 			memcpy(&incoming_des_pos, &(rdg_struct->buffer[payload_start+(5*sizeof(float))]), sizeof(float));
 			memcpy(&incoming_des_time, &(rdg_struct->buffer[payload_start+(6*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_joint_inertia, &(rdg_struct->buffer[payload_start+(7*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_grav, &(rdg_struct->buffer[payload_start+(8*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_dyn_frict, &(rdg_struct->buffer[payload_start+(9*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_stc_frict, &(rdg_struct->buffer[payload_start+(10*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_trans_v, &(rdg_struct->buffer[payload_start+(11*sizeof(float))]), sizeof(float));
 			if (incoming_m_id == 1)
 			{
 				m1_traj.traj_mode = incoming_traj_mode;
@@ -332,6 +343,11 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 				m1_traj.des_freq = incoming_freq;
 				m1_traj.theta_target = incoming_des_pos;
 				m1_traj.time_to_targ = incoming_des_time;
+				m1_traj.joint_inertia_ff = incoming_joint_inertia;
+				m1_traj.gravity_ff = incoming_grav;
+				m1_traj.dyn_frct_ff = incoming_dyn_frict; //torque(nm)/(rad/s)
+				m1_traj.stat_frct_ff = incoming_stc_frict;//breakway torque(nm)
+				m1_traj.trans_v_ff = incoming_trans_v;//smoothing speed/(rad/s)
 				m1_traj.new_traj_req = 1;
 			}
 			if (incoming_m_id == 2)
@@ -341,6 +357,11 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 				m2_traj.des_freq = incoming_freq;
 				m2_traj.theta_target = incoming_des_pos;
 				m2_traj.time_to_targ = incoming_des_time;
+				m2_traj.joint_inertia_ff = incoming_joint_inertia;
+				m2_traj.gravity_ff = incoming_grav;
+				m2_traj.dyn_frct_ff = incoming_dyn_frict; //torque(nm)/(rad/s)
+				m2_traj.stat_frct_ff = incoming_stc_frict;//breakway torque(nm)
+				m2_traj.trans_v_ff = incoming_trans_v;//smoothing speed/(rad/s)
 				m2_traj.new_traj_req = 1;
 			}
 
