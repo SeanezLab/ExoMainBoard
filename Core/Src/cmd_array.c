@@ -46,83 +46,88 @@ void vibro_cmd_init(VibroCommand* vibro_cmd)
 
 void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx)
 {
-	if (m_cmd->new_pos == 1)
+	// if no other commands are queued, send a query
+	if (m_cmd->new_query == 1 && m_cmd->new_pos == 0 && m_cmd->new_sp_cmd == 0 && m_cmd->new_cont == 0)
 	{
-		// Might have to change this to be instance specific if the motors have different control weights
-		can_pack_tx(m_tx, &(m_cmd->des_pos), &(m_cmd->des_v), &(m_cmd->des_kp), &(m_cmd->des_kd), &(m_cmd->des_tff));
-		m_cmd->new_pos = 0;
+		m_tx->data[0] = 0xff;
+		m_tx->data[1] = 0xff;
+		m_tx->data[2] = 0xff;
+		m_tx->data[3] = 0xff;
+		m_tx->data[4] = 0xff;
+		m_tx->data[5] = 0xff;
+		m_tx->data[6] = 0xff;
+		m_tx->data[7] = 0xff;
+		m_cmd->new_query = 0;
 		m_cmd->rdy_to_snd = 1;
 	}
-
-	if (m_cmd->new_sp_cmd == 1)
+	else
 	{
-		// Exit Motor Mode
-		if (m_cmd->des_mode == 0)
+		if (m_cmd->new_pos == 1)
 		{
-			m_tx->data[0] = 0xff;
-			m_tx->data[1] = 0xff;
-			m_tx->data[2] = 0xff;
-			m_tx->data[3] = 0xff;
-			m_tx->data[4] = 0xff;
-			m_tx->data[5] = 0xff;
-			m_tx->data[6] = 0xff;
-			m_tx->data[7] = 0xfd;//fd
-			m_cmd->new_sp_cmd = 0;
+			// Might have to change this to be instance specific if the motors have different control weights
+			can_pack_tx(m_tx, &(m_cmd->des_pos), &(m_cmd->des_v), &(m_cmd->des_kp), &(m_cmd->des_kd), &(m_cmd->des_tff));
+			m_cmd->new_pos = 0;
 			m_cmd->rdy_to_snd = 1;
 		}
-		// Enter Motor Mode
-		else if (m_cmd->des_mode == 1)
-		{
-			m_tx->data[0] = 0xff;
-			m_tx->data[1] = 0xff;
-			m_tx->data[2] = 0xff;
-			m_tx->data[3] = 0xff;
-			m_tx->data[4] = 0xff;
-			m_tx->data[5] = 0xff;
-			m_tx->data[6] = 0xff;
-			m_tx->data[7] = 0xfc;
-			m_cmd->new_sp_cmd = 0;
-			m_cmd->rdy_to_snd = 1;
-		}
-		// Zero Position Sensor
-		else if (m_cmd->des_mode == 2)
-		{
-			m_tx->data[0] = 0xff;
-			m_tx->data[1] = 0xff;
-			m_tx->data[2] = 0xff;
-			m_tx->data[3] = 0xff;
-			m_tx->data[4] = 0xff;
-			m_tx->data[5] = 0xff;
-			m_tx->data[6] = 0xff;
-			m_tx->data[7] = 0xfe;//fe
-			m_cmd->new_sp_cmd = 0;
-			m_cmd->rdy_to_snd = 1;
-		}
-		else
-		{
-			return; // Could not parse special command
-		}
-	}
-	if (m_cmd->new_cont == 1)
+
+		if (m_cmd->new_cont == 1)
 		{
 			// Might have to change this to be instance specific if the motors have different control weights
 			can_pack_tx(m_tx, &(m_cmd->des_pos), &(m_cmd->des_v), &(m_cmd->des_kp), &(m_cmd->des_kd), &(m_cmd->des_tff));
 			m_cmd->new_cont = 0;
 			m_cmd->rdy_to_snd = 1;
 		}
-	if (m_cmd->new_query == 1)
+		// Mode changes can overwrite the packet. They take precedence over position and control modifications.
+		if (m_cmd->new_sp_cmd == 1)
 		{
-			m_tx->data[0] = 0xff;
-			m_tx->data[1] = 0xff;
-			m_tx->data[2] = 0xff;
-			m_tx->data[3] = 0xff;
-			m_tx->data[4] = 0xff;
-			m_tx->data[5] = 0xff;
-			m_tx->data[6] = 0xff;
-			m_tx->data[7] = 0xff;
-			m_cmd->new_query = 0;
-			m_cmd->rdy_to_snd = 1;
+			// Exit Motor Mode
+			if (m_cmd->des_mode == 0)
+			{
+				m_tx->data[0] = 0xff;
+				m_tx->data[1] = 0xff;
+				m_tx->data[2] = 0xff;
+				m_tx->data[3] = 0xff;
+				m_tx->data[4] = 0xff;
+				m_tx->data[5] = 0xff;
+				m_tx->data[6] = 0xff;
+				m_tx->data[7] = 0xfd;//fd
+				m_cmd->new_sp_cmd = 0;
+				m_cmd->rdy_to_snd = 1;
+			}
+			// Enter Motor Mode
+			else if (m_cmd->des_mode == 1)
+			{
+				m_tx->data[0] = 0xff;
+				m_tx->data[1] = 0xff;
+				m_tx->data[2] = 0xff;
+				m_tx->data[3] = 0xff;
+				m_tx->data[4] = 0xff;
+				m_tx->data[5] = 0xff;
+				m_tx->data[6] = 0xff;
+				m_tx->data[7] = 0xfc;
+				m_cmd->new_sp_cmd = 0;
+				m_cmd->rdy_to_snd = 1;
+			}
+			// Zero Position Sensor
+			else if (m_cmd->des_mode == 2)
+			{
+				m_tx->data[0] = 0xff;
+				m_tx->data[1] = 0xff;
+				m_tx->data[2] = 0xff;
+				m_tx->data[3] = 0xff;
+				m_tx->data[4] = 0xff;
+				m_tx->data[5] = 0xff;
+				m_tx->data[6] = 0xff;
+				m_tx->data[7] = 0xfe;//fe
+				m_cmd->new_sp_cmd = 0;
+				m_cmd->rdy_to_snd = 1;
+			}
+			else
+			{
+				return; // Could not parse special command
+			}
 		}
+	}
 
 	if (m_cmd->rdy_to_snd == 1)
 		{

@@ -32,6 +32,7 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdbool.h>
+#include <stdint.h>
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -55,6 +56,7 @@ extern volatile uint16_t bt_msg_size;
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+void run_com_loop(void);
 
 /* USER CODE END EFP */
 

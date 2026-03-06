@@ -228,15 +228,20 @@ void unpack_reply(CANRxMessage msg)
 
     if (id == 1)
     {
+    	//Copy the reading to the transmission array
     	memcpy(m1_pos, &p, sizeof(float));
     	memcpy(m1_vel, &v, sizeof(float));
     	memcpy(m1_ic, &i, sizeof(float));
+    	//and copy to the motor trajectory manager
+    	memcpy(&(m1_traj.theta_current), &p, sizeof(float));
     }
     else if (id == 2)
     {
     	memcpy(m2_pos, &p, sizeof(float));
 		memcpy(m2_vel, &v, sizeof(float));
 		memcpy(m2_ic, &i, sizeof(float));
+		//and copy to the motor trajectory manager
+		memcpy(&(m2_traj.theta_current), &p, sizeof(float));
     }
     else
     {

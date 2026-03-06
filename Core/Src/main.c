@@ -21,6 +21,7 @@
 #include "dma.h"
 #include "fdcan.h"
 #include "i2c.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -81,6 +82,8 @@ CANRxMessage m_rx;
 // Command Structs
 MotorCommand m1_cmd;
 MotorCommand m2_cmd;
+MotorTrajectory m1_traj;
+MotorTrajectory m2_traj;
 VibroCommand vibro_cmd;
 
 
@@ -136,6 +139,8 @@ int main(void)
   MX_USART2_UART_Init();
   MX_FDCAN1_Init();
   MX_I2C2_Init();
+  MX_TIM6_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
 
 
@@ -180,11 +185,13 @@ int main(void)
   // Initialize the Command structures
   motor_cmd_init(&m1_cmd, 1);
   motor_cmd_init(&m2_cmd, 2);
+  motor_trajectory_init(m1_traj, 1);
+  motor_trajectory_init(m2_traj, 2);
   vibro_cmd_init(&vibro_cmd);
 
-
-
-  FDCAN_ProtocolStatusTypeDef ps;
+  // Lastly, turn on our event loops
+  HAL_TIM_Base_Start_IT(&htim6);
+  HAL_TIM_Base_Start_IT(&htim7);
 
   /* USER CODE END 2 */
 
@@ -192,61 +199,15 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // Query states
-//	  check_i2c_dma();
-	  // Query the Motor states
-	  m1_cmd.new_query = 1;
-	  m2_cmd.new_query = 1;
-	  handle_m_cmd(&m1_cmd, &m1_tx);
-	  handle_m_cmd(&m2_cmd, &m2_tx);
-
-
-	  // Generate test signals
-	  float cos_out = update_cos_signal();
-	  m1_cmd.des_pos = cos_out;
-	  m1_cmd.new_pos = 1;
-//	  memcpy(&m1_cmd.des_pos, &cos_out, (size_t)sizeof(cos_out));
-
-//	  increment_frame_counter();
-	  memcpy(frame, &frame_counter, (size_t)sizeof(frame_counter));
-
-
-	  // Transmit states
-	  compile_data_sources(22,
-			  exo_busy, exo_fsm, exo_debug,
-			  m1_pos, m1_des, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd, m1_mode,
-			  m2_pos, m2_des, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd, m2_mode,
-			  frame);
-
-	  // Send data
-	  crc_uart_send_data(compiled_payload, &huart1);
-
-
-	  // Handle Messages
-	  if (got_bt_msg == true)
+	  // Check if we run the com loop
+	  if (com_loop_flag == 1)
 	  {
-		  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
-		  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
-		  flush_buffer(bt_dma_reader);
-		  got_bt_msg = false;
-
+		  run_com_loop();
 	  }
-
-
-	  // Handle Commands
-	  handle_m_cmd(&m1_cmd, &m1_tx);
-	  handle_m_cmd(&m2_cmd, &m2_tx);
-
-
-	  // Turn off flags
-	  HAL_Delay(15);
-
-
-
-	  // Update our sensors/states (Motor drivers, Vibrotactile Stimulator, Load Cells, etc.)
-
-
-
+	  if (m_cmd_loop_flag == 1)
+	  {
+		  run_motor_loop();
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -301,6 +262,64 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void run_motor_loop(void)
+{
+	// Update the clock
+	traj_clock += 0.005F;
+	// Update trajectory
+	advance_traj(&m1_traj, &m1_cmd);
+	// Generate test signals
+//	float cos_out = update_cos_signal();
+//	float v_des_calc = calculate_cos_dot();
+//	m1_cmd.des_pos = cos_out;
+//	m1_cmd.des_v = v_des_calc;
+////	m1_cmd.des_tff = cos_out;
+//	m1_cmd.new_pos = 1;
+	// Handle Commands
+	handle_m_cmd(&m1_cmd, &m1_tx);
+	handle_m_cmd(&m2_cmd, &m2_tx);
+	// Turn off flag
+	m_cmd_loop_flag = 0;
+}
+
+void run_com_loop(void)
+{
+	  // Query the Motor states
+	  m1_cmd.new_query = 1;
+	  m2_cmd.new_query = 1;
+//	  handle_m_cmd(&m1_cmd, &m1_tx);
+//	  handle_m_cmd(&m2_cmd, &m2_tx);
+
+//	  increment_frame_counter();
+	  memcpy(frame, &frame_counter, (size_t)sizeof(frame_counter));
+
+	  // Transmit states
+	  compile_data_sources(22,
+			  exo_busy, exo_fsm, exo_debug,
+			  m1_pos, m1_des, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd, m1_mode,
+			  m2_pos, m2_des, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd, m2_mode,
+			  frame);
+	  // Send data
+	  crc_uart_send_data(compiled_payload, &huart1);
+	  // Handle Messages
+	  if (got_bt_msg == true)
+	  {
+		  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
+		  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
+		  flush_buffer(bt_dma_reader);
+		  got_bt_msg = false;
+//		  handle_m_cmd(&m1_cmd, &m1_tx);
+//		  handle_m_cmd(&m2_cmd, &m2_tx);
+
+	  }
+
+
+
+	  // Turn off com_loop_flag
+	  com_loop_flag = 0;
+}
+
 
 // Interrupt handler for the bt_rx_dma_buffer
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)

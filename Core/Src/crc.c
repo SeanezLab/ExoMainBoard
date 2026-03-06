@@ -309,6 +309,41 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 				m2_cmd.des_tff = incoming_m_tff;
 				m2_cmd.new_cont = 1;
 			}
+		}
+		else if (condition == 4)
+		{
+			// This is the motor packet. Write it to the command struct, and set the flag. float[packet_type, m1_pos, m2_pos]
+			float incoming_m_id;
+			float incoming_traj_mode;
+			float incoming_t_mult;
+			float incoming_freq;
+			float incoming_des_pos;
+			float incoming_des_time;
+			memcpy(&incoming_m_id, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
+			memcpy(&incoming_traj_mode, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_t_mult, &(rdg_struct->buffer[payload_start+(3*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_freq, &(rdg_struct->buffer[payload_start+(4*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_des_pos, &(rdg_struct->buffer[payload_start+(5*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_des_time, &(rdg_struct->buffer[payload_start+(6*sizeof(float))]), sizeof(float));
+			if (incoming_m_id == 1)
+			{
+				m1_traj.traj_mode = incoming_traj_mode;
+				m1_traj.t_mult = incoming_t_mult;
+				m1_traj.des_freq = incoming_freq;
+				m1_traj.theta_target = incoming_des_pos;
+				m1_traj.time_to_targ = incoming_des_time;
+				m1_traj.new_traj_req = 1;
+			}
+			if (incoming_m_id == 2)
+			{
+				m2_traj.traj_mode = incoming_traj_mode;
+				m2_traj.t_mult = incoming_t_mult;
+				m2_traj.des_freq = incoming_freq;
+				m2_traj.theta_target = incoming_des_pos;
+				m2_traj.time_to_targ = incoming_des_time;
+				m2_traj.new_traj_req = 1;
+			}
+
 
 		}
 		else
@@ -316,6 +351,7 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 			// Packet is of unknown mode.
 			return;
 		}
+
 	}
 	else
 	{

@@ -9,9 +9,10 @@
 #include "test_signals.h"
 #include "math.h"
 
-#define PI 3.14F
+#define PI 3.1415926F
 
 float cos_counter = 0;
+float cos_dot = 0;
 uint8_t frame_counter = 0;
 
 
@@ -23,7 +24,7 @@ void increment_cos_counter(void)
 	}
 	else
 	{
-		cos_counter += 0.01F;
+		cos_counter += 1.0F;
 	}
 }
 
@@ -45,4 +46,23 @@ float update_cos_signal(void)
 	float cos_out = cosf(cos_counter);
 	increment_cos_counter();
 	return cos_out;
+}
+
+float calculate_cos_dot(void)
+{
+	float cos_dot = -2 * sinf(cos_counter);
+	return cos_dot;
+
+}
+
+float traj_cos_theta(float freq, float time)
+{
+	float theta = cosf(2*PI*freq*time);
+	return theta;
+}
+
+float traj_cos_theta_dot(float freq, float time)
+{
+	float theta_dot = -2*PI*freq*sinf(2*PI*freq*time);
+	return theta_dot;
 }

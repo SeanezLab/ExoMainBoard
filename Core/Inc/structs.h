@@ -12,6 +12,7 @@
 #include "ring_buffer.h"
 #include "fdcan.h"
 #include "cmd_array.h"
+#include "trajectory_manager.h"
 
 // Global Structs ///
 // Bluetooth UART reading buffer
@@ -28,6 +29,8 @@ extern CANRxMessage m_rx;
 // Command Handling Structs
 extern MotorCommand m1_cmd;
 extern MotorCommand m2_cmd;
+extern MotorTrajectory m1_traj;
+extern MotorTrajectory m2_traj;
 extern VibroCommand vibro_cmd;
 
 

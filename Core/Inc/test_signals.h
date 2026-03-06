@@ -18,6 +18,10 @@ extern uint8_t frame_counter;
 void increment_cos_counter(void);
 void increment_frame_counter(void);
 float update_cos_signal(void);
+float calculate_cos_dot(void);
+float traj_cos_theta(float freq, float time);
+float traj_cos_theta_dot(float freq, float time);
+
 
 
 #ifdef __cplusplus
