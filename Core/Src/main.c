@@ -185,8 +185,8 @@ int main(void)
   // Initialize the Command structures
   motor_cmd_init(&m1_cmd, 1);
   motor_cmd_init(&m2_cmd, 2);
-  motor_trajectory_init(m1_traj, 1);
-  motor_trajectory_init(m2_traj, 2);
+  motor_trajectory_init(&m1_traj, 1);
+  motor_trajectory_init(&m2_traj, 2);
   vibro_cmd_init(&vibro_cmd);
 
   // Lastly, turn on our event loops
@@ -269,6 +269,7 @@ void run_motor_loop(void)
 //	traj_clock += 0.005F;
 	// Update trajectory
 	advance_traj(&m1_traj, &m1_cmd);
+	advance_traj(&m2_traj, &m2_cmd);
 	// Generate test signals
 //	float cos_out = update_cos_signal();
 //	float v_des_calc = calculate_cos_dot();

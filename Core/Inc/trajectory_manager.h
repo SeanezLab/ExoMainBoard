@@ -53,7 +53,7 @@ typedef struct{
 	MinJerkTraj jerk_traj;
 }MotorTrajectory;
 
-
+void motor_trajectory_init(MotorTrajectory* m_traj, uint8_t motor_id);
 void advance_traj(MotorTrajectory* m_traj, MotorCommand* m_cmd);
 void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd);
 void minjerk_start(MinJerkTraj* tr, float theta0, float thetaf, float T, float dt);

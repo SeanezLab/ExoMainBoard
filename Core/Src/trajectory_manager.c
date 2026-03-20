@@ -84,7 +84,16 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		{
 			minjerk_step(&(m_traj->jerk_traj), &(m_traj->theta), &(m_traj->theta_d), &(m_traj->theta_dd));
 		}
-		memcpy(m1_des, &(m_traj->theta), sizeof(float));
+
+		if (m_traj->motor_id == 1)
+		{
+			memcpy(m1_des, &(m_traj->theta), sizeof(float));
+		}
+		else if (m_traj->motor_id == 2)
+		{
+			memcpy(m2_des, &(m_traj->theta), sizeof(float));
+		}
+
 		float t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
 		m_cmd->des_pos = m_traj->theta;
 		m_cmd->des_v = m_traj->theta_d;
