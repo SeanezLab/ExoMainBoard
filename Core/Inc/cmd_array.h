@@ -21,8 +21,8 @@ extern "C" {
 
 // Motor 1 control  constants (Do not change unless you've validated the tuning!)
 #define DES_M1_V 0.0f
-#define DES_M1_KP 120.0f
-#define DES_M1_KD 5.0f
+#define DES_M1_KP 240.0f
+#define DES_M1_KD 12.0f
 #define DES_M1_TFF 0.0f
 
 // Exoskeleton desired state/mode
