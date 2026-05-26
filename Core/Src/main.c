@@ -94,7 +94,8 @@ VibroCommand vibro_cmd;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+void run_motor_loop(void);
+void run_com_loop(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/

@@ -27,6 +27,16 @@ typedef struct{
 	bool active;
 } MinJerkTraj;
 
+
+typedef struct{
+	float theta0;//in radians
+	float thetaf;//in radians
+	float T; //In Seconds
+	float t; //current time (locally), in seconds
+	float dt; //timestep, in seconds
+	bool active;
+} ConstVel;
+
 typedef struct{
 	uint8_t motor_id;
 	uint8_t traj_mode;
@@ -51,6 +61,7 @@ typedef struct{
 	bool new_traj_req;
 	bool traj_cmplt;
 	MinJerkTraj jerk_traj;
+	ConstVel const_vel_traj;
 }MotorTrajectory;
 
 void motor_trajectory_init(MotorTrajectory* m_traj, uint8_t motor_id);
@@ -58,6 +69,8 @@ void advance_traj(MotorTrajectory* m_traj, MotorCommand* m_cmd);
 void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd);
 void minjerk_start(MinJerkTraj* tr, float theta0, float thetaf, float T, float dt);
 bool minjerk_step(MinJerkTraj* tr, float* theta, float* theta_dot, float* theta_ddot);
+void constvel_start(ConstVel* tr, float theta0, float thetaf, float T, float dt);
+bool constvel_step(ConstVel* tr, float* theta, float* theta_dot, float* theta_ddot);
 float smooth_sign(float v, float v0);
 float friction_ff(float v_des, float b_visc, float tau_breakaway, float v0);
 

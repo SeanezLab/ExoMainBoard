@@ -13,6 +13,8 @@
 #include <string.h>
 #include <math.h>
 
+float t_ff;
+
 void motor_trajectory_init(MotorTrajectory* m_traj, uint8_t motor_id)
 {
 	m_traj->motor_id = motor_id;
@@ -72,7 +74,8 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		m_cmd->new_pos = 1;
 		m_cmd->new_cont = 1;
 		return;
-	case 2:
+
+	case 2:// Minimum Jerk
 		if (m_traj->new_traj_req == true)
 		{
 			m_traj->new_traj_req = false;
@@ -94,14 +97,115 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 			memcpy(m2_des, &(m_traj->theta), sizeof(float));
 		}
 
-		float t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
+		t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
 		m_cmd->des_pos = m_traj->theta;
 		m_cmd->des_v = m_traj->theta_d;
 		m_cmd->des_tff = t_ff;
 		m_cmd->new_pos = 1;
 		m_cmd->new_cont = 1;
+		return;
+
+	case 3:// Constant Velocity
+		if (m_traj->new_traj_req == true)
+		{
+			m_traj->new_traj_req = false;
+			float dt = 0.005f * m_traj->t_mult;
+			constvel_start(&(m_traj->const_vel_traj), m_cmd->des_pos, m_traj->theta_target, m_traj->time_to_targ, dt);
+			constvel_step(&(m_traj->const_vel_traj), &(m_traj->theta), &(m_traj->theta_d), &(m_traj->theta_dd));
+		}
+		else if (m_traj->const_vel_traj.active == true)
+		{
+			constvel_step(&(m_traj->const_vel_traj), &(m_traj->theta), &(m_traj->theta_d), &(m_traj->theta_dd));
+		}
+
+		if (m_traj->motor_id == 1)
+		{
+			memcpy(m1_des, &(m_traj->theta), sizeof(float));
+		}
+		else if (m_traj->motor_id == 2)
+		{
+			memcpy(m2_des, &(m_traj->theta), sizeof(float));
+		}
+
+		t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
+		m_cmd->des_pos = m_traj->theta;
+		m_cmd->des_v = m_traj->theta_d;
+		m_cmd->des_tff = t_ff;
+		m_cmd->new_pos = 1;
+		m_cmd->new_cont = 1;
+		return;
 
 	}
+}
+
+void constvel_start(ConstVel* tr, float theta0, float thetaf, float T, float dt)
+{
+	tr->theta0 = theta0;
+	tr->thetaf = thetaf;
+	tr->T = (T > 1e-6F) ? T : 1e-6F;
+	tr->t = 0.0F;
+	tr->dt = dt;
+	tr->active = true;
+}
+
+bool constvel_step(ConstVel* tr, float* theta, float* theta_dot, float* theta_ddot)
+{
+    if (tr->active == false)
+    {
+        // Trajectory finished, hold the final
+        if (theta)      *theta      = tr->thetaf;
+        if (theta_dot)  *theta_dot  = 0.0f;
+        if (theta_ddot) *theta_ddot = 0.0f;
+        return false;
+    }
+
+    // Protect against divide-by-zero or invalid trajectory time
+    if (tr->T <= 0.0f)
+    {
+        if (theta)      *theta      = tr->thetaf;
+        if (theta_dot)  *theta_dot  = 0.0f;
+        if (theta_ddot) *theta_ddot = 0.0f;
+
+        tr->active = false;
+        return false;
+    }
+
+    // Clamp time to [0, T]
+    float t = tr->t;
+    if (t >= tr->T) t = tr->T;
+    if (t <= 0.0f)  t = 0.0f;
+
+    const float T = tr->T;
+    const float dtheta = tr->thetaf - tr->theta0;
+
+    // Constant velocity
+    const float v = dtheta / T;
+
+    // Linear trajectory:
+    // theta(t) = theta0 + v*t
+    // theta_dot(t) = v
+    // theta_ddot(t) = 0
+    if (theta)      *theta      = tr->theta0 + v * t;
+    if (theta_dot)  *theta_dot  = v;
+    if (theta_ddot) *theta_ddot = 0.0f;
+
+    // Advance time
+    tr->t += tr->dt;
+
+    // Finish?
+    if (tr->t >= tr->T + 0.5f * tr->dt)
+    {
+        tr->active = false;
+
+        // Hard-set final for cleanliness
+        if (theta)      *theta      = tr->thetaf;
+        if (theta_dot)  *theta_dot  = 0.0f;
+        if (theta_ddot) *theta_ddot = 0.0f;
+
+        return false;
+    }
+
+    return true;
 }
 
 void minjerk_start(MinJerkTraj* tr, float theta0, float thetaf, float T, float dt)
@@ -124,6 +228,7 @@ bool minjerk_step(MinJerkTraj* tr, float* theta, float* theta_dot, float* theta_
 		if (theta) *theta = tr->thetaf;
 		if (theta_dot) *theta_dot = 0.0f;
 		if (theta_ddot) *theta_ddot = 0.0f;
+		return false;
 	}
 
 	// Clamp time to [0, T]
