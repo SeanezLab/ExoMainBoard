@@ -22,7 +22,7 @@ inline void dma_to_rdg_buf(rdg_buf_struct* rdg_struct, uint8_t* dma_buffer, uint
 	// then update the dma_head location
 	if (empty_spaces < msg_size){
 		// Transfer the pre-crossover data:
-		memcpy(rdg_struct->buffer, dma_buffer+rdg_struct->dma_head, msg_size * sizeof(dma_buffer[0]));
+		memcpy(rdg_struct->buffer, dma_buffer+rdg_struct->dma_head, empty_spaces * sizeof(dma_buffer[0]));
 		uint8_t rem_to_copy = msg_size - empty_spaces;
 		rdg_struct->dma_head = 0;
 		rdg_struct->tail += empty_spaces;
@@ -46,15 +46,14 @@ inline void rdg_buf_echo(rdg_buf_struct* rdg_struct, UART_HandleTypeDef* huart){
 
 // Clear the reading buffer following a successful process of the command
 inline void flush_buffer(rdg_buf_struct* rdg_struct){
-	rdg_struct->head = 0;
 	rdg_struct->tail = 0;
 }
 
 // Initializes the reading buffer
-rdg_buf_struct* rdg_buf_init(uint16_t size){
+rdg_buf_struct* rdg_buf_init(uint16_t size)
+{
 	rdg_buf_struct* rb = malloc(sizeof(rdg_buf_struct) + size);
 	rb->buf_size = size;
-	rb->head = 0;
 	rb->tail = 0;
 	rb->dma_head = 0;
 	return rb;

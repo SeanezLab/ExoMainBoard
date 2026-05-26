@@ -20,7 +20,6 @@ extern "C" {
 
 typedef struct{
 	uint16_t buf_size;
-	volatile uint16_t head;
 	volatile uint16_t tail;
 	volatile uint16_t dma_head;
 	uint8_t buffer[];
