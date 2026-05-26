@@ -19,9 +19,12 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "usart.h"
+#include <stdbool.h>
 
 /* USER CODE BEGIN 0 */
-uint8_t volatile huart1_tx_complete = 1;
+volatile uint8_t  huart1_tx_complete = 1;
+volatile bool got_bt_msg = false;
+volatile uint16_t bt_msg_size = 0;
 /* USER CODE END 0 */
 
 UART_HandleTypeDef huart1;
@@ -316,6 +319,39 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 	  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_RESET);
   }
 
+}
+
+void huart1_RTO_handler(void)
+{
+	if (__HAL_UART_GET_FLAG(&huart1, UART_FLAG_RTOF) &&
+			__HAL_UART_GET_IT_SOURCE(&huart1, UART_IT_RTO))
+	{
+		// Clear the timeout flag
+		__HAL_UART_CLEAR_FLAG(&huart1, UART_FLAG_RTOF);
+
+		// Get the count of the bytes
+		static uint16_t rem_p = BT_RX_DMA_SIZE;
+
+		uint16_t remaining = __HAL_DMA_GET_COUNTER(huart1.hdmarx);
+		uint16_t received;
+
+		if (rem_p >= remaining)
+		{
+			received = rem_p - remaining;
+		}
+		else
+		{
+			received = rem_p + BT_RX_DMA_SIZE - remaining;
+		}
+
+
+		rem_p = remaining;
+		bt_msg_size = received;
+		got_bt_msg = 1;
+
+		// Optionally stop DMA here; we restart it in main after processing
+		//HAL_UART_DMAStop(&huart1);
+	}
 }
 
 /* USER CODE END 1 */

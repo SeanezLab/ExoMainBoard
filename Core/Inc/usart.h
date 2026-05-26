@@ -39,6 +39,9 @@ extern UART_HandleTypeDef huart2;
 /* USER CODE BEGIN Private defines */
 extern volatile uint8_t huart1_tx_complete;
 extern volatile uint8_t tx_dma_packet;
+extern volatile bool got_bt_msg;
+extern volatile uint16_t bt_msg_size;
+#define BT_RX_DMA_SIZE 256//256
 
 /* USER CODE END Private defines */
 
@@ -47,6 +50,7 @@ void MX_USART2_UART_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 void huart1_try_send(uint8_t* msg, uint16_t msg_size);
+void huart1_RTO_handler(void);
 
 /* USER CODE END Prototypes */
 

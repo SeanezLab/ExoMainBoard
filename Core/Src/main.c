@@ -64,8 +64,7 @@
 /* USER CODE BEGIN PV */
 
 // Define interrupt flags
-volatile bool got_bt_msg = false;
-volatile uint16_t bt_msg_size = 0;
+
 
 // Define Bluetooth buffer structures
 rdg_buf_struct* bt_dma_reader;
@@ -113,7 +112,6 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	// Initialize the buffers with a given size
 	bt_dma_reader = rdg_buf_init(BT_RX_DMA_SIZE);
-	volatile uint16_t bt_idx = 0;
 
   /* USER CODE END 1 */
 

@@ -37,8 +37,7 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-extern volatile bool got_bt_msg;
-extern volatile uint16_t bt_msg_size;
+
 
 /* USER CODE END ET */
 
@@ -49,7 +48,7 @@ extern volatile uint16_t bt_msg_size;
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-#define BT_RX_DMA_SIZE 256//256
+
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
