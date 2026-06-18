@@ -32,6 +32,7 @@ extern uint8_t m1_tau[];
 extern uint8_t m1_kp[];
 extern uint8_t m1_kd[];
 extern uint8_t m1_mode[];
+extern uint8_t m1_traj_status[];
 // Motor drive 2 data (ankle)
 extern uint8_t m2_pos[];
 extern uint8_t m2_des[];
@@ -42,6 +43,7 @@ extern uint8_t m2_tau[];
 extern uint8_t m2_kp[];
 extern uint8_t m2_kd[];
 extern uint8_t m2_mode[];
+extern uint8_t m2_traj_status[];
 // Debugging transmits
 extern uint8_t frame[];
 extern uint8_t debug[];

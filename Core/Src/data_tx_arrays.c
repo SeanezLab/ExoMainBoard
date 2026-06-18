@@ -26,6 +26,7 @@ uint8_t m1_tau[4] = {0};
 uint8_t m1_kp[4] = {0};
 uint8_t m1_kd[4] = {0};
 uint8_t m1_mode[1] = {0};
+uint8_t m1_traj_status[1] = {0};
 // Motor drive 2 data (ankle)
 uint8_t m2_pos[4] = {0};
 uint8_t m2_des[4] = {0};
@@ -36,6 +37,7 @@ uint8_t m2_tau[4] = {0};
 uint8_t m2_kp[4] = {0};
 uint8_t m2_kd[4] = {0};
 uint8_t m2_mode[1] = {0};
+uint8_t m2_traj_status[1] = {0};
 // Debugging transmits
 uint8_t frame[1] = {0};
 uint8_t debug[10] = {0};

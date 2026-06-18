@@ -50,6 +50,17 @@ void advance_traj(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		m_traj->tic = 0;
 	}
 
+	// Update the trajectory mode array
+	if (m_traj->motor_id == 1)
+	{
+		memcpy(m1_traj_status, &(m_traj->traj_cmplt), sizeof(bool));
+	}
+
+	if (m_traj->motor_id == 2)
+	{
+		memcpy(m2_traj_status, &(m_traj->traj_cmplt), sizeof(bool));
+	}
+
 }
 
 void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
@@ -86,10 +97,16 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		else if (m_traj->jerk_traj.active == true)
 		{
 			minjerk_step(&(m_traj->jerk_traj), &(m_traj->theta), &(m_traj->theta_d), &(m_traj->theta_dd));
+			m_traj->traj_cmplt = m_traj->jerk_traj.active;
+		}
+		else if (m_traj->jerk_traj.active == false)
+		{
+			m_traj->traj_cmplt = m_traj->jerk_traj.active;
 		}
 
 		if (m_traj->motor_id == 1)
 		{
+			m_traj->theta = (m_traj->theta) * -1; // Multiply by -1 to correct direction
 			memcpy(m1_des, &(m_traj->theta), sizeof(float));
 		}
 		else if (m_traj->motor_id == 2)
@@ -116,6 +133,11 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		else if (m_traj->const_vel_traj.active == true)
 		{
 			constvel_step(&(m_traj->const_vel_traj), &(m_traj->theta), &(m_traj->theta_d), &(m_traj->theta_dd));
+			m_traj->traj_cmplt = m_traj->const_vel_traj.active;
+		}
+		else if (m_traj->const_vel_traj.active == false)
+		{
+			m_traj->traj_cmplt = m_traj->const_vel_traj.active;
 		}
 
 		if (m_traj->motor_id == 1)
