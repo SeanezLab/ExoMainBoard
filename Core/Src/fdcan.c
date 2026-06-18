@@ -228,6 +228,9 @@ void unpack_reply(CANRxMessage msg)
 
     if (id == 1)
     {
+    	// Add direction modifier
+    	p = p * -1;
+    	v = v * -1;
     	//Copy the reading to the transmission array
     	memcpy(m1_pos, &p, sizeof(float));
     	memcpy(m1_vel, &v, sizeof(float));
