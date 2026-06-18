@@ -106,8 +106,8 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 
 		if (m_traj->motor_id == 1)
 		{
-			m_traj->theta = (m_traj->theta) * -1; // Multiply by -1 to correct direction
-			memcpy(m1_des, &(m_traj->theta), sizeof(float));
+			float theta_mod = (m_traj->theta) * -1;
+			memcpy(m1_des, &theta_mod, sizeof(float));
 		}
 		else if (m_traj->motor_id == 2)
 		{

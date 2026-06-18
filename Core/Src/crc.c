@@ -341,7 +341,7 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 				m1_traj.traj_mode = incoming_traj_mode;
 				m1_traj.t_mult = incoming_t_mult;
 				m1_traj.des_freq = incoming_freq;
-				m1_traj.theta_target = incoming_des_pos;
+				m1_traj.theta_target = incoming_des_pos *-1; // Multiply by -1 to account for direction
 				m1_traj.time_to_targ = incoming_des_time;
 				m1_traj.joint_inertia_ff = incoming_joint_inertia;
 				m1_traj.gravity_ff = incoming_grav;
