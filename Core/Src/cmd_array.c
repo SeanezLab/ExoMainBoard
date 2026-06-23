@@ -20,9 +20,23 @@ void motor_cmd_init(MotorCommand* m_cmd, uint8_t motor_id)
 	m_cmd->motor_id = motor_id;
 	m_cmd->des_pos = 0; //Initialize with all zeros
 	m_cmd->des_mode = 0; //Start with the motor disabled
+	m_cmd->last_mode = 0; // Set the last mode to 0.
 	m_cmd->des_v = 0;
-	m_cmd->des_kp = DES_M1_KP;
-	m_cmd->des_kd = DES_M1_KD;
+	if (motor_id == 1)
+	{
+		m_cmd->des_kp = DES_M1_KP;
+		m_cmd->des_kd = DES_M1_KD;
+	}
+	else if (motor_id == 2)
+	{
+		m_cmd->des_kp = DES_M2_KP;
+		m_cmd->des_kd = DES_M2_KD;
+	}
+	else
+	{
+		m_cmd->des_kp = DEF_KP;
+		m_cmd->des_kd = DEF_KD;
+	}
 	m_cmd->des_tff = 0;
 	m_cmd->new_pos = 0; //Start with the new position flag off
 	m_cmd->new_sp_cmd = 1; //Start with the new command on so we can set the motor to disable on startup
@@ -64,7 +78,6 @@ void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx)
 	{
 		if (m_cmd->new_pos == 1)
 		{
-			// Might have to change this to be instance specific if the motors have different control weights
 			can_pack_tx(m_tx, &(m_cmd->des_pos), &(m_cmd->des_v), &(m_cmd->des_kp), &(m_cmd->des_kd), &(m_cmd->des_tff));
 			m_cmd->new_pos = 0;
 			m_cmd->rdy_to_snd = 1;

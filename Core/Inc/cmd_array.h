@@ -19,11 +19,24 @@ extern "C" {
 #include <stdbool.h>
 #include "fdcan.h"
 
+// Default control  constants (Do not change unless you've validated the tuning!)
+#define DEF_V 0.0f
+#define DEF_KP 0.0f
+#define DEF_KD 0.0f
+#define DEF_TFF 0.0f
+
 // Motor 1 control  constants (Do not change unless you've validated the tuning!)
 #define DES_M1_V 0.0f
 #define DES_M1_KP 240.0f
 #define DES_M1_KD 12.0f
 #define DES_M1_TFF 0.0f
+
+// Motor 2 control  constants (Do not change unless you've validated the tuning!)
+#define DES_M2_V 0.0f
+#define DES_M2_KP 240.0f
+#define DES_M2_KD 18.0f
+#define DES_M2_TFF 0.0f
+
 
 // Exoskeleton desired state/mode
 extern float des_mode;
@@ -32,13 +45,14 @@ extern float des_mode;
 typedef struct{
 	uint8_t motor_id;
 	float des_pos;
-	float des_mode;
+	float des_mode; // New special command, 0:exit motor mode, 1:enter motor mode, 2:zero position
+	float last_mode; // previous mode for transition checking
 	float des_v;
 	float des_kp;
 	float des_kd;
 	float des_tff;
 	bool new_pos;
-	bool new_sp_cmd; // New special command, 0:exit motor mode, 1:enter motor mode, 2:zero position
+	bool new_sp_cmd;
 	bool rdy_to_snd;
 	bool new_cont;
 	bool new_query;

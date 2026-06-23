@@ -264,18 +264,17 @@ void SystemClock_Config(void)
 
 void run_motor_loop(void)
 {
-	// Update the clock
-//	traj_clock += 0.005F;
+	// Check for new commands
+	if (got_bt_msg == true)
+	{
+	  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
+	  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
+	  flush_buffer(bt_dma_reader);
+	  got_bt_msg = false;
+	}
 	// Update trajectory
 	advance_traj(&m1_traj, &m1_cmd);
 	advance_traj(&m2_traj, &m2_cmd);
-	// Generate test signals
-//	float cos_out = update_cos_signal();
-//	float v_des_calc = calculate_cos_dot();
-//	m1_cmd.des_pos = cos_out;
-//	m1_cmd.des_v = v_des_calc;
-////	m1_cmd.des_tff = cos_out;
-//	m1_cmd.new_pos = 1;
 	// Handle Commands
 	handle_m_cmd(&m1_cmd, &m1_tx);
 	handle_m_cmd(&m2_cmd, &m2_tx);
@@ -307,20 +306,6 @@ void run_com_loop(void)
 	  			  frame);
 	  // Send data
 	  crc_uart_send_data(compiled_payload, &huart1);
-	  // Handle Messages
-	  if (got_bt_msg == true)
-	  {
-		  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
-		  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
-		  flush_buffer(bt_dma_reader);
-		  got_bt_msg = false;
-//		  handle_m_cmd(&m1_cmd, &m1_tx);
-//		  handle_m_cmd(&m2_cmd, &m2_tx);
-
-	  }
-
-
-
 	  // Turn off com_loop_flag
 	  com_loop_flag = 0;
 }

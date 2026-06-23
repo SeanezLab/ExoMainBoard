@@ -269,12 +269,14 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 			// This is to avoid parsing repeat commands.
 			if (incoming_m_id == 1)
 			{
-				m1_cmd.des_mode = incoming_m_mode;
+				m1_cmd.last_mode = m1_cmd.des_mode; //Set the last mode to the previous mode.
+				m1_cmd.des_mode = incoming_m_mode; //update the desired mode
 				m1_cmd.new_sp_cmd = 1;
 			}
 
 			if (incoming_m_id == 2)
 			{
+				m2_cmd.last_mode = m2_cmd.des_mode;
 				m2_cmd.des_mode = incoming_m_mode;
 				m2_cmd.new_sp_cmd = 1;
 			}
@@ -378,6 +380,8 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 	{
 		uint8_t crc_fail = 1;
 	}
+
+
 	return;
 
 }

@@ -39,7 +39,7 @@ typedef struct{
 
 typedef struct{
 	uint8_t motor_id;
-	uint8_t traj_mode;
+	uint8_t traj_mode; // 0: Free move, 1: Test sinusoid, 2: Minimum jerk, 3: Constant velocity.
 	uint32_t cmd_idx;
 	float pos_array[TRAJ_LEN];
 	uint8_t t_mult; // How many tics of the cmd_loop to wait before generating a new trajectory/ Affects the rate commands are send
