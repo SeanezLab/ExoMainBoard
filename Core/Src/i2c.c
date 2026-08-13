@@ -197,11 +197,13 @@ void HAL_I2C_MspDeInit(I2C_HandleTypeDef* i2cHandle)
 // Check the I2C instance for data from the vibrotactile stimulator. If the I2C is free, request more data. If data is ready, return 1. If the data is not ready, return 0.
 uint8_t check_i2c_dma(void)
 {
+	uint8_t fail = 0;
 	if (i2c_rx_done)
 	{
 		if (i2c_rx_status == HAL_OK)
 		{
 			//memcpy(vibro_z_axis, i2c_rx_buf, (size_t)sizeof(i2c_rx_buf));
+			fail = 0;
 		}
 	}
 
@@ -210,9 +212,11 @@ uint8_t check_i2c_dma(void)
 		HAL_StatusTypeDef st = start_i2c_rx_dma(I2C_RX_BYTES);
 		if (st != HAL_OK)
 		{
-			uint8_t fail = 1;
+			fail = 1;
 		}
 	}
+
+	return fail;
 
 }
 

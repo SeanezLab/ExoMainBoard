@@ -13,10 +13,12 @@
 #include "fdcan.h"
 #include "cmd_array.h"
 #include "trajectory_manager.h"
+#include "fsm.h"
 
 // Global Structs ///
 // Bluetooth UART reading buffer
 extern rdg_buf_struct* bt_dma_reader;
+extern uint8_t bt_rx_dma_buffer[];
 
 // Motor CAN Structs
 // Motor 1 (Proximal Joint)
@@ -32,6 +34,9 @@ extern MotorCommand m2_cmd;
 extern MotorTrajectory m1_traj;
 extern MotorTrajectory m2_traj;
 extern VibroCommand vibro_cmd;
+
+// Finite State Machine Structs
+extern FSMStruct state;
 
 
 #endif /* INC_STRUCTS_H_ */

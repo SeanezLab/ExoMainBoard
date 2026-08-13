@@ -7,17 +7,22 @@
 
 #include "fsm.h"
 #include "usart.h"
+#include "tim.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
 #include "structs.h"
-#include "foc.h"
-#include "math_ops.h"
-#include "position_sensor.h"
-#include "drv8323.h"
+#include "test_signals.h"
+#include "data_tx_arrays.h"
+#include "crc.h"
+
+static void run_motor_loop(void);
+static void run_com_loop(void);
+void run_transparency_loop(void);
 
  void run_fsm(FSMStruct * fsmstate){
-	 /* run_fsm is run every communication cycle */
+	 /* run_fsm is run every iteration of the main loop */
 
 	 /* state transition management */
 	 if(fsmstate->next_state != fsmstate->state){
@@ -31,9 +36,26 @@
 	 // This is where we do the work required for each state.
 	 switch(fsmstate->state){
 		 case COMMAND_MODE:
+			  if (com_loop_flag == 1)
+			  {
+				  run_com_loop();
+			  }
+			  if (m_cmd_loop_flag == 1)
+			  {
+				  run_motor_loop();
+			  }
 			 break;
 
 		 case TRANSPARENCY_MODE:
+			 // Behaves identically to command mode, but with zero gains
+			  if (com_loop_flag == 1)
+			  {
+				  run_com_loop();
+			  }
+			  if (m_cmd_loop_flag == 1)
+			  {
+				  run_transparency_loop();
+			  }
 			 break;
 
 		 case CONFIG_MODE:
@@ -109,26 +131,121 @@
 			}
 			break;
 		case CONFIG_MODE:
+			// Right now you shouldn't be in the state, so just send the user to transparency mode
+			fsmstate->next_state = TRANSPARENCY_MODE;
+			fsmstate->ready = 0;
 			break;
 	}
 	//printf("FSM State: %d  %d\r\n", fsmstate.state, fsmstate.state_change);
  }
 
 
- void enter_menu_state(void){
-	    //drv.disable_gd();
-	    //reset_foc(&controller);
-	    //gpio.enable->write(0);
-	    printf("\n\r\n\r");
-	    printf(" Commands:\n\r");
-	    printf(" m - Motor Mode\n\r");
-	    printf(" c - Calibrate Encoder\n\r");
-	    printf(" s - Setup\n\r");
-	    printf(" e - Display Encoder\n\r");
-	    printf(" z - Set Zero Position\n\r");
-	    printf(" esc - Exit to Menu\n\r");
-
-	    //gpio.led->write(0);
+ void enter_config_state(void)
+ {
+	// For now, the config state has not been implemented, do nothing.
+	 ;
  }
 
+ void enter_command_state(void)
+ {
+	 // Zero out any of the commands
+
+	 // Reapply the gains
+	 reapply_motor_gains(&m1_cmd);
+	 reapply_motor_gains(&m2_cmd);
+ }
+ void enter_transparency_state(void)
+ {
+	 // Save the current control gains and zero out motor 1
+	 save_motor_gains(&m1_cmd);
+	 zero_motor_gains(&m1_cmd);
+	 m1_cmd.new_cont = 1;
+	 // Do the same for motor 2
+	 save_motor_gains(&m2_cmd);
+	 zero_motor_gains(&m2_cmd);
+	 m2_cmd.new_cont = 1;
+	 // Clear the trajectories for both the motors (TODO)
+	 // Immediately update the motors
+	handle_m_cmd(&m1_cmd, &m1_tx);
+	handle_m_cmd(&m2_cmd, &m2_tx);
+
+ }
+
+
+void run_motor_loop(void)
+{
+	/* This is the loop that generates trajectory commands and sends them to
+	 * the motors.
+	 */
+	// Check for new commands
+	if (got_bt_msg == true)
+	{
+	  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
+	  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
+	  flush_buffer(bt_dma_reader);
+	  got_bt_msg = false;
+	}
+	// Update trajectory
+	advance_traj(&m1_traj, &m1_cmd);
+	advance_traj(&m2_traj, &m2_cmd);
+	// Handle Commands
+	handle_m_cmd(&m1_cmd, &m1_tx);
+	handle_m_cmd(&m2_cmd, &m2_tx);
+	// Turn off flag
+	m_cmd_loop_flag = 0;
+}
+
+void run_transparency_loop(void)
+{
+	// Check for new commands
+	if (got_bt_msg == true)
+	{
+	  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
+	  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
+	  flush_buffer(bt_dma_reader);
+	  got_bt_msg = false;
+	}
+	// Enforce Transparency (We don't set the new command flag, just ensure that gains are zero)
+	 save_motor_gains(&m1_cmd);
+	 zero_motor_gains(&m1_cmd);
+	 save_motor_gains(&m2_cmd);
+	 zero_motor_gains(&m2_cmd);
+
+	// Handle Commands
+	handle_m_cmd(&m1_cmd, &m1_tx);
+	handle_m_cmd(&m2_cmd, &m2_tx);
+	// Turn off flag
+	m_cmd_loop_flag = 0;
+}
+
+void run_com_loop(void)
+{
+	/* This is the loop that queries the exoskeleton state and transmits/receives
+	 * commands from the host.
+	 */
+	  // Query the Motor states
+	  m1_cmd.new_query = 1;
+	  m2_cmd.new_query = 1;
+	  // Query the FSM states
+	  memcpy(exo_fsm, &(state.state), (size_t)sizeof(state.state));
+
+//	  increment_frame_counter();
+	  memcpy(frame, &frame_counter, (size_t)sizeof(frame_counter));
+
+	  // Transmit states
+//	  compile_data_sources(22,
+//			  exo_busy, exo_fsm, exo_debug,
+//			  m1_pos, m1_des, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd, m1_mode,
+//			  m2_pos, m2_des, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd, m2_mode,
+//			  frame);
+	  compile_data_sources(14,
+	  			  exo_busy, exo_fsm, exo_debug,
+	  			  m1_pos, m1_des, m1_vel, m1_mode, m1_traj_status,
+	  			  m2_pos, m2_des, m2_vel, m2_mode, m2_traj_status,
+	  			  frame);
+	  // Send data
+	  crc_uart_send_data(compiled_payload, &huart1);
+	  // Turn off com_loop_flag
+	  com_loop_flag = 0;
+}
 

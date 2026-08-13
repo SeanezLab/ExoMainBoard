@@ -39,6 +39,7 @@
 #include "data_tx_arrays.h"
 #include "crc.h"
 #include "test_signals.h"
+#include "fsm.h"
 
 
 
@@ -84,6 +85,9 @@ MotorCommand m2_cmd;
 MotorTrajectory m1_traj;
 MotorTrajectory m2_traj;
 VibroCommand vibro_cmd;
+
+// Finite state machine
+FSMStruct state;
 
 
 
@@ -198,15 +202,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // Check if we run the com loop
-	  if (com_loop_flag == 1)
-	  {
-		  run_com_loop();
-	  }
-	  if (m_cmd_loop_flag == 1)
-	  {
-		  run_motor_loop();
-	  }
+	  // Run the main loop, which is performed within the finite state machine
+	  run_fsm(&state);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -261,54 +258,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-void run_motor_loop(void)
-{
-	// Check for new commands
-	if (got_bt_msg == true)
-	{
-	  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
-	  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
-	  flush_buffer(bt_dma_reader);
-	  got_bt_msg = false;
-	}
-	// Update trajectory
-	advance_traj(&m1_traj, &m1_cmd);
-	advance_traj(&m2_traj, &m2_cmd);
-	// Handle Commands
-	handle_m_cmd(&m1_cmd, &m1_tx);
-	handle_m_cmd(&m2_cmd, &m2_tx);
-	// Turn off flag
-	m_cmd_loop_flag = 0;
-}
-
-void run_com_loop(void)
-{
-	  // Query the Motor states
-	  m1_cmd.new_query = 1;
-	  m2_cmd.new_query = 1;
-//	  handle_m_cmd(&m1_cmd, &m1_tx);
-//	  handle_m_cmd(&m2_cmd, &m2_tx);
-
-//	  increment_frame_counter();
-	  memcpy(frame, &frame_counter, (size_t)sizeof(frame_counter));
-
-	  // Transmit states
-//	  compile_data_sources(22,
-//			  exo_busy, exo_fsm, exo_debug,
-//			  m1_pos, m1_des, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd, m1_mode,
-//			  m2_pos, m2_des, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd, m2_mode,
-//			  frame);
-	  compile_data_sources(14,
-	  			  exo_busy, exo_fsm, exo_debug,
-	  			  m1_pos, m1_des, m1_vel, m1_mode, m1_traj_status,
-	  			  m2_pos, m2_des, m2_vel, m2_mode, m2_traj_status,
-	  			  frame);
-	  // Send data
-	  crc_uart_send_data(compiled_payload, &huart1);
-	  // Turn off com_loop_flag
-	  com_loop_flag = 0;
-}
 
 
 // Interrupt handler for the bt_rx_dma_buffer

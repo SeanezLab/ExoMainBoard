@@ -22,22 +22,30 @@ void motor_cmd_init(MotorCommand* m_cmd, uint8_t motor_id)
 	m_cmd->des_mode = 0; //Start with the motor disabled
 	m_cmd->last_mode = 0; // Set the last mode to 0.
 	m_cmd->des_v = 0;
+	m_cmd->svd_v = 0;
 	if (motor_id == 1)
 	{
 		m_cmd->des_kp = DES_M1_KP;
+		m_cmd->svd_kp = DES_M1_KP;
 		m_cmd->des_kd = DES_M1_KD;
+		m_cmd->svd_kd = DES_M1_KD;
 	}
 	else if (motor_id == 2)
 	{
 		m_cmd->des_kp = DES_M2_KP;
+		m_cmd->svd_kp = DES_M2_KP;
 		m_cmd->des_kd = DES_M2_KD;
+		m_cmd->svd_kd = DES_M2_KD;
 	}
 	else
 	{
 		m_cmd->des_kp = DEF_KP;
+		m_cmd->svd_kp = DEF_KP;
 		m_cmd->des_kd = DEF_KD;
+		m_cmd->svd_kd = DEF_KD;
 	}
 	m_cmd->des_tff = 0;
+	m_cmd->svd_tff = 0;
 	m_cmd->new_pos = 0; //Start with the new position flag off
 	m_cmd->new_sp_cmd = 1; //Start with the new command on so we can set the motor to disable on startup
 	m_cmd->rdy_to_snd = 1;
@@ -153,4 +161,32 @@ void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx)
 		  m_cmd->rdy_to_snd = 0;
 		}
 
+}
+
+void reapply_motor_gains(MotorCommand* m_cmd)
+{
+	// Reapplies the saved motor gains
+	 m_cmd->des_kd = m_cmd->svd_kd;
+	 m_cmd->des_kp = m_cmd->svd_kp;
+	 m_cmd->des_tff = m_cmd->svd_tff;
+	 m_cmd->des_v = m_cmd->svd_v;
+}
+void save_motor_gains(MotorCommand* m_cmd)
+{
+	 /* Saves the currently set motor gains
+	  */
+	 m_cmd->svd_kd = m_cmd->des_kd;
+	 m_cmd->svd_kp = m_cmd->des_kp;
+	 m_cmd->svd_tff = m_cmd->des_tff;
+	 m_cmd->svd_v = m_cmd->des_v;
+}
+
+void zero_motor_gains(MotorCommand* m_cmd)
+{
+	/* Zeros our the motor gains
+	 */
+	 m_cmd->des_kd = DEF_KP;
+	 m_cmd->des_kp = DEF_KD;
+	 m_cmd->des_tff = DEF_TFF;
+	 m_cmd->des_v = DEF_V;
 }

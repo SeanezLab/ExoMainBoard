@@ -51,6 +51,10 @@ typedef struct{
 	float des_kp;
 	float des_kd;
 	float des_tff;
+	float svd_v;
+	float svd_kp;
+	float svd_kd;
+	float svd_tff;
 	bool new_pos;
 	bool new_sp_cmd;
 	bool rdy_to_snd;
@@ -73,6 +77,9 @@ typedef struct{
 void motor_cmd_init(MotorCommand* m_cmd, uint8_t motor_id);
 void vibro_cmd_init(VibroCommand* vibro_cmd);
 void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx);
+void reapply_motor_gains(MotorCommand* m_cmd);
+void save_motor_gains(MotorCommand* m_cmd);
+void zero_motor_gains(MotorCommand* m_cmd);
 
 
 #ifdef __cplusplus
