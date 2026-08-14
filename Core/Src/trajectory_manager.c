@@ -47,23 +47,7 @@ void advance_traj(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 	// Check if we are going from disable to enabled motors. If so, set the desired position to the current position.
 	if ((m_cmd->new_sp_cmd == 1) && (m_cmd->last_mode != 1) && (m_cmd->des_mode == 1))
 	{
-		m_traj->new_traj_req = true;
-		// Update the desired position from the latest
-		float latest_pos;
-		if (m_traj->motor_id == 1)
-		{
-
-			memcpy(&latest_pos, m1_pos, sizeof(latest_pos));
-			m_cmd->des_pos = latest_pos * -1; //Flip sign for the m1 motor.
-			m_traj->theta_target =  latest_pos * -1;
-		}
-
-		if (m_traj->motor_id == 2)
-		{
-			memcpy(&latest_pos, m2_pos, sizeof(latest_pos));
-			m_cmd->des_pos = latest_pos;
-			m_traj->theta_target =  latest_pos;
-		}
+		reset_target_pos(m_traj,m_cmd);
 	}
 
 	// Update the timer
@@ -184,6 +168,29 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 	}
 }
 
+void reset_target_pos(MotorTrajectory* m_traj, MotorCommand* m_cmd)
+{
+	// Sets the target position of the motor to the current position. Used when transitioning
+	// from a disabled->enabled motor state, or from the transparent->command state for the exo
+	m_traj->new_traj_req = true;
+	// Update the desired position from the latest read position
+	float latest_pos;
+	if (m_traj->motor_id == 1)
+	{
+
+		memcpy(&latest_pos, m1_pos, sizeof(latest_pos));
+		m_cmd->des_pos = latest_pos * -1; //Flip sign for the m1 motor.
+		m_traj->theta_target =  latest_pos * -1;
+	}
+
+	if (m_traj->motor_id == 2)
+	{
+		memcpy(&latest_pos, m2_pos, sizeof(latest_pos));
+		m_cmd->des_pos = latest_pos;
+		m_traj->theta_target =  latest_pos;
+	}
+}
+
 void constvel_start(ConstVel* tr, float theta0, float thetaf, float T, float dt)
 {
 	tr->theta0 = theta0;
@@ -254,6 +261,7 @@ bool constvel_step(ConstVel* tr, float* theta, float* theta_dot, float* theta_dd
     return true;
 }
 
+
 void minjerk_start(MinJerkTraj* tr, float theta0, float thetaf, float T, float dt)
 {
 	tr->theta0 = theta0;
@@ -318,6 +326,7 @@ bool minjerk_step(MinJerkTraj* tr, float* theta, float* theta_dot, float* theta_
 
     return true;
 }
+
 
 // Smooth sign function using tanh(v/v0)
 // v0 sets how quickly it transitions near 0 (units: position_units/s)

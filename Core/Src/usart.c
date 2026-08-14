@@ -19,7 +19,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "usart.h"
-#include <stdbool.h>
 
 /* USER CODE BEGIN 0 */
 volatile uint8_t  huart1_tx_complete = 1;

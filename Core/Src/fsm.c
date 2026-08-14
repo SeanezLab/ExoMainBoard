@@ -148,9 +148,13 @@ void run_transparency_loop(void);
 
  void enter_command_state(void)
  {
+
+	 // Clear out any queued trajectories
+	reset_target_pos(&m1_traj, &m1_cmd);
+	reset_target_pos(&m2_traj, &m2_cmd);
 	 // Zero out any of the commands
 
-	 // Reapply the gains
+	 // Re-apply the gains
 	 reapply_motor_gains(&m1_cmd);
 	 reapply_motor_gains(&m2_cmd);
  }
@@ -206,9 +210,9 @@ void run_transparency_loop(void)
 	  got_bt_msg = false;
 	}
 	// Enforce Transparency (We don't set the new command flag, just ensure that gains are zero)
-	 save_motor_gains(&m1_cmd);
+//	 save_motor_gains(&m1_cmd);
 	 zero_motor_gains(&m1_cmd);
-	 save_motor_gains(&m2_cmd);
+//	 save_motor_gains(&m2_cmd);
 	 zero_motor_gains(&m2_cmd);
 
 	// Handle Commands
