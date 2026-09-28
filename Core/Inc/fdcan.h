@@ -46,6 +46,8 @@ extern FDCAN_HandleTypeDef hfdcan1;
 #define KD_MAX 100.0f
 #define I_MIN -40.0f
 #define I_MAX 40.0f
+#define KT 0.2454f // Motor Constant
+#define GR 6.0 // Gear Ratio
 
 /* USER CODE END Private defines */
 
