@@ -191,6 +191,30 @@ void can_tx_init(CANTxMessage* msg, uint32_t motor_id)
 // Send
 void can_pack_tx(CANTxMessage* msg, float* p_des, float* v_des, float* kp_des, float* kd_des, float* t_ff_des)
 {
+	uint64_t payload;
+
+#if CAN_COMMAND_MODE == CAN_SLOW_VELOCITY_CONTROL_MODE
+	// Slow velocity mode: [mode:1][position:20][velocity:14][kp:10][kd:10][torque:9]
+	float p_bnd = fminf(fmaxf(P_MIN, *p_des), P_MAX);
+	float v_bnd = fminf(fmaxf(SLOW_VELOCITY_MIN, *v_des), SLOW_VELOCITY_MAX);
+	float kp_bnd = fminf(fmaxf(SLOW_VELOCITY_KP_MIN, *kp_des), SLOW_VELOCITY_KP_MAX);
+	float kd_bnd = fminf(fmaxf(SLOW_VELOCITY_KD_MIN, *kd_des), SLOW_VELOCITY_KD_MAX);
+	float t_bnd = fminf(fmaxf(I_MIN * KT * GR, *t_ff_des), I_MAX * KT * GR);
+
+	uint32_t p_int = (uint32_t)float_to_uint(p_bnd, P_MIN, P_MAX, 20);
+	uint32_t v_int = (uint32_t)float_to_uint(v_bnd, SLOW_VELOCITY_MIN, SLOW_VELOCITY_MAX, 14);
+	uint32_t kp_int = (uint32_t)float_to_uint(kp_bnd, SLOW_VELOCITY_KP_MIN, SLOW_VELOCITY_KP_MAX, 10);
+	uint32_t kd_int = (uint32_t)float_to_uint(kd_bnd, SLOW_VELOCITY_KD_MIN, SLOW_VELOCITY_KD_MAX, 10);
+	uint32_t t_int = (uint32_t)float_to_uint(t_bnd, I_MIN * KT * GR, I_MAX * KT * GR, 9);
+
+	payload = (UINT64_C(1)<<63)
+			| ((uint64_t)p_int<<43)
+			| ((uint64_t)v_int<<29)
+			| ((uint64_t)kp_int<<19)
+			| ((uint64_t)kd_int<<9)
+			| (uint64_t)t_int;
+#else
+	// Position/torque mode: [mode:1][position:15][velocity:12][kp:12][kd:12][torque:12]
 	// Limit the data to be within bounds
     float p_bnd = fminf(fmaxf(P_MIN, *p_des), P_MAX);
     float v_bnd = fminf(fmaxf(V_MIN, *v_des), V_MAX);
@@ -198,20 +222,22 @@ void can_pack_tx(CANTxMessage* msg, float* p_des, float* v_des, float* kp_des, f
     float kd_bnd = fminf(fmaxf(KD_MIN, *kd_des), KD_MAX);
     float t_bnd = fminf(fmaxf(I_MIN * KT * GR, *t_ff_des), I_MAX * KT * GR); // The command that comes in from the host is torque
 	// Compress a float to an uint of given bits
-	int p_int = float_to_uint(p_bnd, P_MIN, P_MAX, 16);
-	int v_int = float_to_uint(v_bnd, V_MIN, V_MAX, 12);
-	int kp_int = float_to_uint(kp_bnd, KP_MIN, KP_MAX, 12);
-	int kd_int = float_to_uint(kd_bnd, KD_MIN, KD_MAX, 12);
-	int t_int = float_to_uint(t_bnd, I_MIN * KT * GR, I_MAX * KT * GR, 12); // The command that comes in from the host is torque
-	// Pack the commands into the CAN buffer
-	msg->data[0] = p_int>>8;
-	msg->data[1] = p_int&0xFF;
-	msg->data[2] = v_int>>4;
-	msg->data[3] = ((v_int&0xF)<<4)|(kp_int>>8);
-	msg->data[4] = kp_int&0xFF;
-	msg->data[5] = kd_int>>4;
-	msg->data[6] = ((kd_int&0xF)<<4)|(t_int>>8);
-	msg->data[7] = t_int&0xff;
+	uint32_t p_int = (uint32_t)float_to_uint(p_bnd, P_MIN, P_MAX, 15);
+	uint32_t v_int = (uint32_t)float_to_uint(v_bnd, V_MIN, V_MAX, 12);
+	uint32_t kp_int = (uint32_t)float_to_uint(kp_bnd, KP_MIN, KP_MAX, 12);
+	uint32_t kd_int = (uint32_t)float_to_uint(kd_bnd, KD_MIN, KD_MAX, 12);
+	uint32_t t_int = (uint32_t)float_to_uint(t_bnd, I_MIN * KT * GR, I_MAX * KT * GR, 12);
+
+	payload = ((uint64_t)p_int<<48)
+			| ((uint64_t)v_int<<36)
+			| ((uint64_t)kp_int<<24)
+			| ((uint64_t)kd_int<<12)
+			| (uint64_t)t_int;
+#endif
+
+	for(int i = 0; i<8; i++){
+		msg->data[i] = (uint8_t)(payload>>(56 - 8*i));
+	}
 }
 
 void unpack_reply(CANRxMessage msg)

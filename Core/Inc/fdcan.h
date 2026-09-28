@@ -36,8 +36,8 @@ extern FDCAN_HandleTypeDef hfdcan1;
 
 /* USER CODE BEGIN Private defines */
 
-#define P_MIN -6.28f
-#define P_MAX 6.28f
+#define P_MIN -12.5f
+#define P_MAX 12.5f
 #define V_MIN -65.0f
 #define V_MAX 65.0f
 #define KP_MIN 0.0f
@@ -48,6 +48,18 @@ extern FDCAN_HandleTypeDef hfdcan1;
 #define I_MAX 40.0f
 #define KT 0.2454f // Motor Constant
 #define GR 6.0 // Gear Ratio
+
+/* Driver command protocol. Change CAN_COMMAND_MODE to select the packet type. */
+#define CAN_POSITION_CONTROL_MODE       0U
+#define CAN_SLOW_VELOCITY_CONTROL_MODE  1U
+#define CAN_COMMAND_MODE                CAN_SLOW_VELOCITY_CONTROL_MODE
+
+#define SLOW_VELOCITY_MIN -0.08726646f // -5 degrees/s, radians/s
+#define SLOW_VELOCITY_MAX  0.08726646f //  5 degrees/s, radians/s
+#define SLOW_VELOCITY_KP_MIN 0.0f
+#define SLOW_VELOCITY_KP_MAX 500.0f
+#define SLOW_VELOCITY_KD_MIN 0.0f
+#define SLOW_VELOCITY_KD_MAX 100.0f
 
 /* USER CODE END Private defines */
 
