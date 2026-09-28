@@ -258,10 +258,10 @@ void run_com_loop(void)
 //			  m1_pos, m1_des, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd, m1_mode,
 //			  m2_pos, m2_des, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd, m2_mode,
 //			  frame);
-	  compile_data_sources(14,
+	  compile_data_sources(16,
 	  			  exo_busy, exo_fsm, exo_debug,
-	  			  m1_pos, m1_des, m1_vel, m1_mode, m1_traj_status,
-	  			  m2_pos, m2_des, m2_vel, m2_mode, m2_traj_status,
+	  			  m1_pos, m1_des, m1_vel, m1_ic, m1_mode, m1_traj_status,
+	  			  m2_pos, m2_des, m2_vel, m2_ic, m2_mode, m2_traj_status,
 	  			  frame);
 	  // Send data
 	  crc_uart_send_data(compiled_payload);
