@@ -196,13 +196,13 @@ void can_pack_tx(CANTxMessage* msg, float* p_des, float* v_des, float* kp_des, f
     float v_bnd = fminf(fmaxf(V_MIN, *v_des), V_MAX);
     float kp_bnd = fminf(fmaxf(KP_MIN, *kp_des), KP_MAX);
     float kd_bnd = fminf(fmaxf(KD_MIN, *kd_des), KD_MAX);
-    float t_bnd = fminf(fmaxf(I_MIN, *t_ff_des), I_MAX);
+    float t_bnd = fminf(fmaxf(I_MIN * KT * GR, *t_ff_des), I_MAX * KT * GR); // The command that comes in from the host is torque
 	// Compress a float to an uint of given bits
 	int p_int = float_to_uint(p_bnd, P_MIN, P_MAX, 16);
 	int v_int = float_to_uint(v_bnd, V_MIN, V_MAX, 12);
 	int kp_int = float_to_uint(kp_bnd, KP_MIN, KP_MAX, 12);
 	int kd_int = float_to_uint(kd_bnd, KD_MIN, KD_MAX, 12);
-	int t_int = float_to_uint(t_bnd, I_MIN, I_MAX, 12);
+	int t_int = float_to_uint(t_bnd, I_MIN * KT * GR, I_MAX * KT * GR, 12); // The command that comes in from the host is torque
 	// Pack the commands into the CAN buffer
 	msg->data[0] = p_int>>8;
 	msg->data[1] = p_int&0xFF;
@@ -220,11 +220,11 @@ void unpack_reply(CANRxMessage msg)
     int id = msg.data[0];
     int p_int = (msg.data[1]<<8)|msg.data[2];
     int v_int = (msg.data[3]<<4)|(msg.data[4]>>4);
-    int i_int = ((msg.data[4]&0xF)<<8)|msg.data[5];
+    int t_int = ((msg.data[4]&0xF)<<8)|msg.data[5];
     /// convert ints to floats ///
     float p = uint_to_float(p_int, P_MIN, P_MAX, 16);
     float v = uint_to_float(v_int, V_MIN, V_MAX, 12);
-    float i = uint_to_float(i_int, -I_MAX, I_MAX, 12);
+    float t = uint_to_float(t_int, -I_MAX * KT * GR, I_MAX * KT * GR, 12); // The reply that came from the driver was torque.
 
     if (id == 1)
     {
@@ -234,7 +234,7 @@ void unpack_reply(CANRxMessage msg)
     	//Copy the reading to the transmission array
     	memcpy(m1_pos, &p, sizeof(float));
     	memcpy(m1_vel, &v, sizeof(float));
-    	memcpy(m1_ic, &i, sizeof(float));
+    	memcpy(m1_ic, &t, sizeof(float));
     	//and copy to the motor trajectory manager
     	float theta_d_measured = p - m1_traj.theta_current;
     	memcpy(&(m1_traj.theta_current), &p, sizeof(float));
@@ -244,7 +244,7 @@ void unpack_reply(CANRxMessage msg)
     {
     	memcpy(m2_pos, &p, sizeof(float));
 		memcpy(m2_vel, &v, sizeof(float));
-		memcpy(m2_ic, &i, sizeof(float));
+		memcpy(m2_ic, &t, sizeof(float));
 		//and copy to the motor trajectory manager
 		float theta_d_measured = p - m2_traj.theta_current;
 		memcpy(&(m2_traj.theta_current), &p, sizeof(float));
