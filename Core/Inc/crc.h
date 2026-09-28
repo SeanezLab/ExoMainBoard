@@ -45,7 +45,7 @@ extern uint8_t compiled_payload[];
 
 
 void compile_data_sources(uint8_t input_count, ...); // helper function for compiling data from different memory locations to the compiled payload location
-void crc_uart_send_data(const uint8_t* src, UART_HandleTypeDef* huart); // Send crc-packeted data over UART
+void crc_uart_send_data(const uint8_t* src); // Send crc-packeted data over UART
 void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length); // Receive and handle crc_packeted data over UART
 
 

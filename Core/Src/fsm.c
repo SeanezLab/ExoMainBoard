@@ -181,13 +181,21 @@ void run_motor_loop(void)
 	/* This is the loop that generates trajectory commands and sends them to
 	 * the motors.
 	 */
-	// Check for new commands
-	if (got_bt_msg == true)
+	// Check for new commands from bluetooth if this pathway is active
+	if (got_bt_msg == true && UART_PORT == 1)
 	{
 	  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
 	  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
 	  flush_buffer(bt_dma_reader);
 	  got_bt_msg = false;
+	}
+	// Same for USART2
+	if (got_usart2_msg == true && UART_PORT == 2)
+		{
+		  dma_to_rdg_buf(usart2_dma_reader, usart2_dma_buffer, usart2_msg_size);
+		  crc_uart_rcv_data(usart2_dma_reader, usart2_msg_size);
+		  flush_buffer(usart2_dma_reader);
+		  got_usart2_msg = false;
 	}
 	// Update trajectory
 	advance_traj(&m1_traj, &m1_cmd);
@@ -201,13 +209,21 @@ void run_motor_loop(void)
 
 void run_transparency_loop(void)
 {
-	// Check for new commands
-	if (got_bt_msg == true)
+	// Check for new commands from bluetooth if this pathway is active
+	if (got_bt_msg == true && UART_PORT == 1)
 	{
 	  dma_to_rdg_buf(bt_dma_reader, bt_rx_dma_buffer, bt_msg_size);
 	  crc_uart_rcv_data(bt_dma_reader, bt_msg_size);
 	  flush_buffer(bt_dma_reader);
 	  got_bt_msg = false;
+	}
+	// Same for USART2
+	if (got_usart2_msg == true && UART_PORT == 2)
+		{
+		  dma_to_rdg_buf(usart2_dma_reader, usart2_dma_buffer, usart2_msg_size);
+		  crc_uart_rcv_data(usart2_dma_reader, usart2_msg_size);
+		  flush_buffer(usart2_dma_reader);
+		  got_usart2_msg = false;
 	}
 	// Enforce Transparency (We don't set the new command flag, just ensure that gains are zero)
 //	 save_motor_gains(&m1_cmd);
@@ -248,7 +264,7 @@ void run_com_loop(void)
 	  			  m2_pos, m2_des, m2_vel, m2_mode, m2_traj_status,
 	  			  frame);
 	  // Send data
-	  crc_uart_send_data(compiled_payload, &huart1);
+	  crc_uart_send_data(compiled_payload);
 	  // Turn off com_loop_flag
 	  com_loop_flag = 0;
 }

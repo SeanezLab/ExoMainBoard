@@ -19,6 +19,9 @@
 // Bluetooth UART reading buffer
 extern rdg_buf_struct* bt_dma_reader;
 extern uint8_t bt_rx_dma_buffer[];
+// Direct USART reading buffer
+extern rdg_buf_struct* usart2_dma_reader;
+extern uint8_t usart2_dma_buffer[];
 
 // Motor CAN Structs
 // Motor 1 (Proximal Joint)
@@ -37,6 +40,9 @@ extern VibroCommand vibro_cmd;
 
 // Finite State Machine Structs
 extern FSMStruct state;
+
+// Hardware Configs (This should maybe have it's own header file)
+#define UART_PORT 2U// 1 is default for BT, 2 is via the virtual com port.
 
 
 #endif /* INC_STRUCTS_H_ */

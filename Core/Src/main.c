@@ -71,6 +71,10 @@
 rdg_buf_struct* bt_dma_reader;
 uint8_t bt_rx_dma_buffer[BT_RX_DMA_SIZE]; // (Written to by DMA)
 
+// Define USART2 (Direct to host) buffer structures
+rdg_buf_struct* usart2_dma_reader;
+uint8_t usart2_dma_buffer[USART2_RX_DMA_SIZE];
+
 // Motor CAN Structs
 // Motor 1 (Proximal Joint)
 CANTxMessage m1_tx;
@@ -116,6 +120,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	// Initialize the buffers with a given size
 	bt_dma_reader = rdg_buf_init(BT_RX_DMA_SIZE);
+	usart2_dma_reader = rdg_buf_init(USART2_RX_DMA_SIZE);
 
   /* USER CODE END 1 */
 
@@ -147,23 +152,43 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
 
-  // --- Enable Receiver Timeout (RTO) on USART1 ---
+  // --- Enable Receiver Timeout (RTO) on USART1 (This is for the Silicon Labs BT Module ---
   // Choose a timeout value in bit-times / baud clocks.
   // For a start, pick something like "20 char times".
   // Exact scaling depends on the reference manual, but this shape is right:
-  huart1.Instance->RTOR = 200;                 // timeout value (tune later)
-  SET_BIT(huart1.Instance->CR2, USART_CR2_RTOEN);   // enable RTO
-  SET_BIT(huart1.Instance->CR1, USART_CR1_RTOIE);   // enable RTO interrupt
+  if (UART_PORT == 1)
+  {
+	  huart1.Instance->RTOR = 200;                 // timeout value (tune later)
+	  SET_BIT(huart1.Instance->CR2, USART_CR2_RTOEN);   // enable RTO
+	  SET_BIT(huart1.Instance->CR1, USART_CR1_RTOIE);   // enable RTO interrupt
+	  // Start the UART of the BT RX line
+	  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, bt_rx_dma_buffer, BT_RX_DMA_SIZE);
+	  // Turn OFF DMA half-transfer + transfer-complete interrupts
+	  __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
+	  __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_TC);
+	  // Try receiver timeout interrupt on huart1
+	  __HAL_UART_ENABLE_IT(&huart1, UART_IT_RTO);
+  }
 
 
-  // Start the UART of the BT RX line
-  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, bt_rx_dma_buffer, BT_RX_DMA_SIZE);
-  // Turn OFF DMA half-transfer + transfer-complete interrupts
-  __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_HT);
-  __HAL_DMA_DISABLE_IT(huart1.hdmarx, DMA_IT_TC);
 
-  // Try receiver timeout interrupt on huart1
-  __HAL_UART_ENABLE_IT(&huart1, UART_IT_RTO);
+  // --- Enable Receiver Timeout (RTO) on USART2 (This is for direct communication w/ the host PC for greater bandwidth) ---
+  // Choose a timeout value in bit-times / baud clocks.
+  // For a start, pick something like "20 char times".
+  // Exact scaling depends on the reference manual, but this shape is right:
+  if (UART_PORT == 2)
+  {
+	  huart2.Instance->RTOR = 200;                 // timeout value (tune later)
+	  SET_BIT(huart2.Instance->CR2, USART_CR2_RTOEN);   // enable RTO
+	  SET_BIT(huart2.Instance->CR1, USART_CR1_RTOIE);   // enable RTO interrupt
+	  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, usart2_dma_buffer, USART2_RX_DMA_SIZE);
+	  // Turn OFF DMA half-transfer + transfer-complete interrupts
+	  __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_HT);
+	  __HAL_DMA_DISABLE_IT(huart2.hdmarx, DMA_IT_TC);
+	  // Try receiver timeout interrupt on huart1
+	  __HAL_UART_ENABLE_IT(&huart2, UART_IT_RTO);
+  }
+
 
   // Initialize CAN communication structures
   // Motor 1

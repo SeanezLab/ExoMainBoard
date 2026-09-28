@@ -24,12 +24,18 @@
 volatile uint8_t  huart1_tx_complete = 1;
 volatile bool got_bt_msg = false;
 volatile uint16_t bt_msg_size = 0;
+
+volatile uint8_t huart2_tx_complete = 1;
+volatile bool got_usart2_msg;
+volatile uint16_t usart2_msg_size;
 /* USER CODE END 0 */
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart1_rx;
 DMA_HandleTypeDef hdma_usart1_tx;
+DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USART1 init function */
 
@@ -88,7 +94,7 @@ void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
+  huart2.Init.BaudRate = 921600;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -237,6 +243,44 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
     GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+    /* USART2 DMA Init */
+    /* USART2_RX Init */
+    hdma_usart2_rx.Instance = DMA1_Channel5;
+    hdma_usart2_rx.Init.Request = DMA_REQUEST_USART2_RX;
+    hdma_usart2_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_usart2_rx.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_usart2_rx.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_usart2_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_usart2_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_usart2_rx.Init.Mode = DMA_CIRCULAR;
+    hdma_usart2_rx.Init.Priority = DMA_PRIORITY_LOW;
+    if (HAL_DMA_Init(&hdma_usart2_rx) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(uartHandle,hdmarx,hdma_usart2_rx);
+
+    /* USART2_TX Init */
+    hdma_usart2_tx.Instance = DMA1_Channel6;
+    hdma_usart2_tx.Init.Request = DMA_REQUEST_USART2_TX;
+    hdma_usart2_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    hdma_usart2_tx.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_usart2_tx.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_usart2_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_usart2_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_usart2_tx.Init.Mode = DMA_NORMAL;
+    hdma_usart2_tx.Init.Priority = DMA_PRIORITY_LOW;
+    if (HAL_DMA_Init(&hdma_usart2_tx) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(uartHandle,hdmatx,hdma_usart2_tx);
+
+    /* USART2 interrupt Init */
+    HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(USART2_IRQn);
   /* USER CODE BEGIN USART2_MspInit 1 */
 
   /* USER CODE END USART2_MspInit 1 */
@@ -288,6 +332,12 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
     */
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_2|GPIO_PIN_3);
 
+    /* USART2 DMA DeInit */
+    HAL_DMA_DeInit(uartHandle->hdmarx);
+    HAL_DMA_DeInit(uartHandle->hdmatx);
+
+    /* USART2 interrupt Deinit */
+    HAL_NVIC_DisableIRQ(USART2_IRQn);
   /* USER CODE BEGIN USART2_MspDeInit 1 */
 
   /* USER CODE END USART2_MspDeInit 1 */
@@ -295,6 +345,24 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 }
 
 /* USER CODE BEGIN 1 */
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if (huart == &huart1)
+  {
+	  huart1_tx_complete = 1;
+	  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_RESET);
+  }
+
+  if (huart == &huart2)
+  {
+	  huart2_tx_complete = 1;
+	  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_RESET);
+  }
+
+}
+
+
 void huart1_try_send(uint8_t* msg, uint16_t msg_size)
 {
 	if (huart1_tx_complete == 1)
@@ -310,15 +378,6 @@ void huart1_try_send(uint8_t* msg, uint16_t msg_size)
 	}
 }
 
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-{
-  if (huart == &huart1)
-  {
-	  huart1_tx_complete = 1;
-	  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_RESET);
-  }
-
-}
 
 void huart1_RTO_handler(void)
 {
@@ -352,5 +411,55 @@ void huart1_RTO_handler(void)
 		//HAL_UART_DMAStop(&huart1);
 	}
 }
+
+void huart2_try_send(uint8_t* msg, uint16_t msg_size)
+{
+	if (huart2_tx_complete == 1)
+	{
+		huart2_tx_complete = 0;
+		HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
+		HAL_StatusTypeDef st = HAL_UART_Transmit_DMA(&huart2, msg, msg_size);
+
+		if (st != HAL_OK)
+		{
+			huart2_tx_complete = 1;
+		}
+	}
+}
+
+void huart2_RTO_handler(void)
+{
+	if (__HAL_UART_GET_FLAG(&huart2, UART_FLAG_RTOF) &&
+			__HAL_UART_GET_IT_SOURCE(&huart2, UART_IT_RTO))
+	{
+		// Clear the timeout flag
+		__HAL_UART_CLEAR_FLAG(&huart2, UART_FLAG_RTOF);
+
+		// Get the count of the bytes
+		static uint16_t rem_p = USART2_RX_DMA_SIZE;
+
+		uint16_t remaining = __HAL_DMA_GET_COUNTER(huart2.hdmarx);
+		uint16_t received;
+
+		if (rem_p >= remaining)
+		{
+			received = rem_p - remaining;
+		}
+		else
+		{
+			received = rem_p + USART2_RX_DMA_SIZE - remaining;
+		}
+
+
+		rem_p = remaining;
+		usart2_msg_size = received;
+		got_usart2_msg = 1;
+
+		// Optionally stop DMA here; we restart it in main after processing
+		//HAL_UART_DMAStop(&huart2);
+	}
+}
+
+
 
 /* USER CODE END 1 */

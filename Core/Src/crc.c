@@ -8,6 +8,7 @@
 
 
 #include <limits.h>
+#include "usart.h"
 #include "crc.h"
 #include "circular_reading_buffer.h"
 #include "data_tx_arrays.h"
@@ -150,11 +151,17 @@ void compile_data_sources(uint8_t input_count, ...)
 
 // Package data and send over UART
 // Packet the predefined data payload (Non-generic)
-void crc_uart_send_data(const uint8_t* src,
-		UART_HandleTypeDef* huart)
+void crc_uart_send_data(const uint8_t* src)
 {
 
-	static volatile uint8_t pkt[PKT_BYTES];
+	volatile static uint8_t pkt[PKT_BYTES];
+
+	// Check if the packet buffer is in use
+	if ((UART_PORT == 1 && huart1_tx_complete == 0) ||
+	    (UART_PORT == 2 && huart2_tx_complete == 0))
+	{
+	    return; // Drop this update while DMA is using the packet buffer
+	}
 
 	// 1. Header (preamble)
 	pkt[0] = 0x55;
@@ -178,8 +185,14 @@ void crc_uart_send_data(const uint8_t* src,
     pkt[4 + PAYLOAD_BYTES + 3] = 0x2B;
 
     // 6. Transmit over UART
-    huart1_try_send(pkt, PKT_BYTES);
-//    HAL_UART_Transmit(huart, pkt, PKT_BYTES, HAL_MAX_DELAY); //HAL_MAX_DELAY
+    if (UART_PORT == 1)
+    {
+    	huart1_try_send(pkt, PKT_BYTES);
+    }
+	if (UART_PORT == 2)
+	{
+		huart2_try_send(pkt, PKT_BYTES);
+	}
 
 }
 
