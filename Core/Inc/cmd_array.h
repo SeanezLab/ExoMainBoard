@@ -57,9 +57,10 @@ typedef struct{
 	float svd_tff;
 	bool new_pos;
 	bool new_sp_cmd;
-	bool rdy_to_snd;
 	bool new_cont;
 	bool new_query;
+	CANRequestMode command_mode; // CAN_COMMAND or CAN_COMMAND_CHARACTERIZATION
+	CANRequestMode query_mode; // CAN_QUERY_STATE or CAN_QUERY_CHARACTERIZATION
 }MotorCommand;
 
 // Vibrotactile command structure

@@ -48,9 +48,10 @@ void motor_cmd_init(MotorCommand* m_cmd, uint8_t motor_id)
 	m_cmd->svd_tff = 0;
 	m_cmd->new_pos = 0; //Start with the new position flag off
 	m_cmd->new_sp_cmd = 1; //Start with the new command on so we can set the motor to disable on startup
-	m_cmd->rdy_to_snd = 1;
 	m_cmd->new_cont = 0;
 	m_cmd->new_query = 0;
+	m_cmd->command_mode = CAN_COMMAND_CHARACTERIZATION; // CAN_COMMAND
+	m_cmd->query_mode = CAN_QUERY_CHARACTERIZATION;
 }
 
 void vibro_cmd_init(VibroCommand* vibro_cmd)
@@ -66,101 +67,63 @@ void vibro_cmd_init(VibroCommand* vibro_cmd)
 }
 
 
+static bool send_m_can(CANTxMessage* m_tx)
+{
+	if (HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m_tx->tx_header), m_tx->data) != HAL_OK)
+	{
+		HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
+		return false;
+	}
+	return true;
+}
+
 void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx)
 {
-	// if no other commands are queued, send a query
-	if (m_cmd->new_query == 1 && m_cmd->new_pos == 0 && m_cmd->new_sp_cmd == 0 && m_cmd->new_cont == 0)
+	// Special commands take precedence
+	if (m_cmd->new_sp_cmd == 1)
 	{
-		m_tx->data[0] = 0xff;
-		m_tx->data[1] = 0xff;
-		m_tx->data[2] = 0xff;
-		m_tx->data[3] = 0xff;
-		m_tx->data[4] = 0xff;
-		m_tx->data[5] = 0xff;
-		m_tx->data[6] = 0xff;
-		m_tx->data[7] = 0xff;
-		m_cmd->new_query = 0;
-		m_cmd->rdy_to_snd = 1;
-	}
-	else
-	{
-		if (m_cmd->new_pos == 1)
+		CANSpecialCommand command;
+		if (m_cmd->des_mode == 0){command = CAN_SPECIAL_DISABLE;}
+		else if (m_cmd->des_mode == 1){command = CAN_SPECIAL_ENABLE;}
+		else if (m_cmd->des_mode == 2){command = CAN_SPECIAL_ZERO;}
+		else
 		{
-			can_pack_tx(m_tx, &(m_cmd->des_pos), &(m_cmd->des_v), &(m_cmd->des_kp), &(m_cmd->des_kd), &(m_cmd->des_tff));
-			m_cmd->new_pos = 0;
-			m_cmd->rdy_to_snd = 1;
+			return;
 		}
 
-		if (m_cmd->new_cont == 1)
+		if (!can_pack_special(m_tx, command) || !send_m_can(m_tx))
 		{
-			// Might have to change this to be instance specific if the motors have different control weights
-			can_pack_tx(m_tx, &(m_cmd->des_pos), &(m_cmd->des_v), &(m_cmd->des_kp), &(m_cmd->des_kd), &(m_cmd->des_tff));
-			m_cmd->new_cont = 0;
-			m_cmd->rdy_to_snd = 1;
+			return;
 		}
-		// Mode changes can overwrite the packet. They take precedence over position and control modifications.
-		if (m_cmd->new_sp_cmd == 1)
+		m_cmd->new_sp_cmd = 0;
+
+	}
+	// A new position or a new control scheme is given
+	else if (m_cmd->new_pos == 1 || m_cmd->new_cont == 1)
+	{
+		CANCommandData command = {
+			.p_des = m_cmd->des_pos,
+			.v_des = m_cmd->des_v,
+			.kp = m_cmd->des_kp,
+			.kd = m_cmd->des_kd,
+			.t_ff = m_cmd->des_tff
+		};
+		if (!can_pack_tx(m_tx, &command, m_cmd->command_mode) || !send_m_can(m_tx))
 		{
-			// Exit Motor Mode
-			if (m_cmd->des_mode == 0)
-			{
-				m_tx->data[0] = 0xff;
-				m_tx->data[1] = 0xff;
-				m_tx->data[2] = 0xff;
-				m_tx->data[3] = 0xff;
-				m_tx->data[4] = 0xff;
-				m_tx->data[5] = 0xff;
-				m_tx->data[6] = 0xff;
-				m_tx->data[7] = 0xfd;//fd
-				m_cmd->new_sp_cmd = 0;
-				m_cmd->rdy_to_snd = 1;
-			}
-			// Enter Motor Mode
-			else if (m_cmd->des_mode == 1)
-			{
-				m_tx->data[0] = 0xff;
-				m_tx->data[1] = 0xff;
-				m_tx->data[2] = 0xff;
-				m_tx->data[3] = 0xff;
-				m_tx->data[4] = 0xff;
-				m_tx->data[5] = 0xff;
-				m_tx->data[6] = 0xff;
-				m_tx->data[7] = 0xfc;
-				m_cmd->new_sp_cmd = 0;
-				m_cmd->rdy_to_snd = 1;
-			}
-			// Zero Position Sensor
-			else if (m_cmd->des_mode == 2)
-			{
-				m_tx->data[0] = 0xff;
-				m_tx->data[1] = 0xff;
-				m_tx->data[2] = 0xff;
-				m_tx->data[3] = 0xff;
-				m_tx->data[4] = 0xff;
-				m_tx->data[5] = 0xff;
-				m_tx->data[6] = 0xff;
-				m_tx->data[7] = 0xfe;//fe
-				m_cmd->new_sp_cmd = 0;
-				m_cmd->rdy_to_snd = 1;
-			}
-			else
-			{
-				return; // Could not parse special command
-			}
+			return; // return on failure
 		}
+		m_cmd->new_pos = 0;
+		m_cmd->new_cont = 0;
 	}
 
-	if (m_cmd->rdy_to_snd == 1)
+	// Pending queries use otherwise idle calls
+	else if (m_cmd->new_query == 1)
+	{
+		if (can_pack_query(m_tx, m_cmd->query_mode) && send_m_can(m_tx))
 		{
-		HAL_StatusTypeDef st = HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &(m_tx->tx_header), m_tx->data);
-		  if (st != HAL_OK)
-		  {
-			  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
-//			  Error_Handler();
-		  }
-		  m_cmd->rdy_to_snd = 0;
+			m_cmd->new_query = 0;
 		}
-
+	}
 }
 
 void reapply_motor_gains(MotorCommand* m_cmd)

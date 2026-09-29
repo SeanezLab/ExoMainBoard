@@ -29,6 +29,7 @@ extern "C" {
 #include "main.h"
 
 /* USER CODE BEGIN Includes */
+#include "can_protocol.h"
 
 /* USER CODE END Includes */
 
@@ -43,7 +44,7 @@ extern FDCAN_HandleTypeDef hfdcan1;
 #define KP_MIN 0.0f
 #define KP_MAX 500.0f
 #define KD_MIN 0.0f
-#define KD_MAX 100.0f
+#define KD_MAX 5.0f
 #define I_MIN -40.0f
 #define I_MAX 40.0f
 #define KT 0.2454f // Motor Constant
@@ -57,7 +58,7 @@ void MX_FDCAN1_Init(void);
 
 typedef struct{
 	uint8_t id;
-	uint8_t data[6];
+	uint8_t data[64]; // HAL copies by DLC before we can reject an unexpected frame
 	FDCAN_RxHeaderTypeDef rx_header;
 	FDCAN_FilterTypeDef filter;
 }CANRxMessage;
@@ -70,8 +71,24 @@ typedef struct{
 
 void can_rx_init(CANRxMessage* msg);
 void can_tx_init(CANTxMessage* msg, uint32_t motor_id);
-void can_pack_tx(CANTxMessage* msg, float* p_des, float* v_des, float* kp, float* kd, float* t_ff);
-void can_unpack_rx(float* rx_reply);
+// Latest samples stay in driver coordinates; the existing control state keeps its sign convention.
+typedef struct{
+	CANStateReply state;
+	CANCharacterizationReply characterization;
+	uint32_t state_count;
+	uint32_t characterization_count;
+	CANReplyMode last_reply_mode;
+}CANMotorTelemetry;
+
+extern volatile CANMotorTelemetry m1_can_telemetry;
+extern volatile CANMotorTelemetry m2_can_telemetry;
+
+bool can_pack_tx(CANTxMessage* msg, const CANCommandData* command, CANRequestMode mode);
+bool can_pack_query(CANTxMessage* msg, CANRequestMode mode);
+bool can_pack_special(CANTxMessage* msg, CANSpecialCommand command);
+bool can_unpack_state(const CANRxMessage* msg, CANStateReply* reply);
+bool can_unpack_characterization(const CANRxMessage* msg, CANCharacterizationReply* reply);
+void can_unpack_rx(const CANRxMessage* msg);
 
 /* USER CODE END Prototypes */
 
