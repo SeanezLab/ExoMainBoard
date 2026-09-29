@@ -49,18 +49,34 @@ uint8_t failures[4] = {0};
 
 DataTxHistory data_tx_history = {0};
 
+typedef enum{
+	DATA_TX_BATCH_FREE,
+	DATA_TX_BATCH_PREPARING,
+	DATA_TX_BATCH_READY,
+	DATA_TX_BATCH_SENDING
+}DataTxBatchState;
 
 typedef struct{
 	uint8_t* packets;
 	uint16_t packet_bytes;
 	uint16_t count;
+	DataTxBatchState state;
 }DataTxBatch;
 
-// DMA owns this buffer until the selected UART's TX-complete flag is set.
-static DataTxBatch data_tx_batch;
+typedef struct{
+	DataTxBatch batches[2];
+	uint8_t prepare_index;
+	uint8_t send_index;
+}DataTxTransfer;
+
+// Only the main-loop drain function changes these states. The UART interrupt
+// signals completion through huart1/2_tx_complete; it never prepares packets.
+static DataTxTransfer data_tx_transfer = {0};
 
 _Static_assert(DATA_TX_HISTORY_CAPACITY > 0 && DATA_TX_HISTORY_CAPACITY <= UINT16_MAX,
 	"History capacity must fit its indices");
+_Static_assert(DATA_TX_BATCH_CAPACITY > 0 && DATA_TX_BATCH_CAPACITY <= DATA_TX_HISTORY_CAPACITY,
+	"Batch capacity must fit the history");
 
 TxPacket* tx_packet_init(uint16_t field_count, const uint16_t* length_key,
 	const uint8_t* const* data_sources)
@@ -103,7 +119,7 @@ bool data_tx_arrays_init(void)
 {
 	if (data_tx_packet != NULL){return true;}
 
-	// Field order is the existing 40-byte telemetry payload. Keep these tables together.
+	// Field order is the existing telemetry payload. Keep these tables together.
 	static const uint8_t* const data_sources[] = {
 		exo_busy, exo_fsm, exo_debug,
 		m1_pos, m1_des, m1_vel, m1_ic, m1_mode, m1_traj_status,
@@ -128,7 +144,7 @@ bool data_tx_arrays_init(void)
 		return false;
 	}
 	// Initialize the data history
-	uint32_t batch_bytes = (uint32_t)DATA_TX_HISTORY_CAPACITY * packet->packet_bytes; // Gets the number of bytes in a batch based on how large a packet is
+	uint32_t batch_bytes = (uint32_t)DATA_TX_BATCH_CAPACITY * packet->packet_bytes; // Byte count for one DMA transfer
 	if (batch_bytes > UINT16_MAX) // The UART transmit take a uint16_t byte count, confirms that we can send this w/out wrapping
 	{
 		free(packet);
@@ -136,7 +152,7 @@ bool data_tx_arrays_init(void)
 	}
 	// Allocates the byte arrays that will hold the history.
 	uint8_t* samples = malloc((size_t)DATA_TX_HISTORY_CAPACITY * packet->payload_bytes); //Holds number of payload bytes
-	uint8_t* packets = malloc(batch_bytes);// Holds all the total bytes for the packets
+	uint8_t* packets = malloc((size_t)2U * batch_bytes); // Two separate batches in one allocation
 	if (samples == NULL || packets == NULL)
 	{
 		free(samples);
@@ -146,8 +162,11 @@ bool data_tx_arrays_init(void)
 	}
 	data_tx_history.samples = samples;
 	data_tx_history.sample_bytes = packet->payload_bytes;
-	data_tx_batch.packets = packets;
-	data_tx_batch.packet_bytes = packet->packet_bytes;
+	for (uint8_t i = 0; i < 2; i++)
+	{
+		data_tx_transfer.batches[i].packets = packets + i * batch_bytes;
+		data_tx_transfer.batches[i].packet_bytes = packet->packet_bytes;
+	}
 	data_tx_packet = packet;
 	return true;
 }
@@ -176,7 +195,7 @@ void data_tx_history_capture(void)
 	exo_fsm[0] = state.state;
 	frame[0] = sequence;
 	uint32_t dropped_count = data_tx_history.dropped;
-	uint16_t high_water_count = data_tx_history.high_water_mark;
+	uint16_t high_water_count = data_tx_history.count;
 	uint32_t failure_count = data_tx_history.tx_failures;
 	memcpy(tx_dropped, &dropped_count, sizeof(dropped_count));
 	memcpy(high_water_mark, &high_water_count, sizeof(high_water_count));
@@ -204,56 +223,117 @@ void data_tx_history_capture(void)
 	__set_PRIMASK(irq_state);
 }
 
-void data_tx_history_drain(void)
+static bool data_tx_uart_ready(void)
 {
-	if (data_tx_packet == NULL){return;}
-	// Do not overwrite the batch while DMA is still reading it.
-	if ((UART_PORT == 1 && huart1_tx_complete == 0) ||
-		(UART_PORT == 2 && huart2_tx_complete == 0))
-	{
-		return;
-	}
-	data_tx_batch.count = data_tx_history.count;
-	if (data_tx_batch.count == 0){return;}
+	if (UART_PORT == 1){return huart1_tx_complete != 0;}
+	if (UART_PORT == 2){return huart2_tx_complete != 0;}
+	return false;
+}
 
-	uint16_t read_index = data_tx_history.read_index;
-	for (uint16_t i = 0; i < data_tx_batch.count; i++)
+// Submit the oldest prepared batch. False means a DMA start failed, so the
+// caller should leave it intact and retry on the next com-loop call.
+static bool data_tx_start_batch(void)
+{
+	if (!data_tx_uart_ready()){return true;}
+
+	// UART is finished reading the previous buffer. It can now be reused.
+	for (uint8_t i = 0; i < 2; i++)
 	{
-		// The producer never overwrites unread entries. New arrivals wait for the next batch.
-		if (!crc_pack_data(&data_tx_batch.packets[i * data_tx_batch.packet_bytes],//This is the area of the packet array to place this packet (destination)
-			data_tx_batch.packet_bytes, // This is how many bytes to place into this area of memory (destination size)
-			&data_tx_history.samples[read_index * data_tx_history.sample_bytes], // This is where to read the data from (source)
-			data_tx_history.sample_bytes))// This is how much data to read from the source (source size)
+		DataTxBatch* batch = &data_tx_transfer.batches[i];
+		if (batch->state == DATA_TX_BATCH_SENDING)
 		{
-			return;
+			batch->state = DATA_TX_BATCH_FREE;
+			batch->count = 0;
 		}
-		read_index = (read_index + 1U) % DATA_TX_HISTORY_CAPACITY; // Updates the read index
 	}
 
-	// Keep the queue's count update atomic with respect to CAN reception.
-	// Disables interrupts while starting the DMA transfer
+	DataTxBatch* batch = &data_tx_transfer.batches[data_tx_transfer.send_index];
+	if (batch->state != DATA_TX_BATCH_READY){return true;}
+
+	// Keep the UART start and its bookkeeping together. No packet preparation
+	// happens here, so interrupts are only disabled briefly.
 	uint32_t irq_state = __get_PRIMASK();
 	__disable_irq();
 	bool started = false;
 	if (UART_PORT == 1)
 	{
-		started = huart1_try_send(data_tx_batch.packets, data_tx_batch.count * data_tx_batch.packet_bytes);
+		started = huart1_try_send(batch->packets, batch->count * batch->packet_bytes);
 	}
 	else if (UART_PORT == 2)
 	{
-		started = huart2_try_send(data_tx_batch.packets, data_tx_batch.count * data_tx_batch.packet_bytes);
+		started = huart2_try_send(batch->packets, batch->count * batch->packet_bytes);
 	}
-	if (started) // If data is successfully started, we decrement our history by the packets we sent
+	if (started)
 	{
-		data_tx_history.read_index = read_index;
-		data_tx_history.count -= data_tx_batch.count;
-		data_tx_history.submitted += data_tx_batch.count;
+		batch->state = DATA_TX_BATCH_SENDING;
+		data_tx_history.submitted += batch->count;
+		data_tx_transfer.send_index = (data_tx_transfer.send_index + 1U) % 2U;
 	}
 	else
 	{
-		data_tx_history.tx_failures++; // If we are unable to send, we note it as a failure and do not update the history so we can retry.
+		data_tx_history.tx_failures++; // Keep the READY batch and its place in line
 	}
 	__set_PRIMASK(irq_state);
+	return started;
+}
+
+static void data_tx_prepare_batch(void)
+{
+	DataTxBatch* batch = &data_tx_transfer.batches[data_tx_transfer.prepare_index];
+	if (batch->state != DATA_TX_BATCH_FREE){return;}
+
+	// Limit each call's preparation work, even when history is full. Do not wait
+	// for a full batch: small batches should still be sent at low sample rates.
+	uint16_t sample_count = data_tx_history.count;
+	if (sample_count > DATA_TX_BATCH_CAPACITY){sample_count = DATA_TX_BATCH_CAPACITY;}
+	if (sample_count == 0){return;}
+	batch->state = DATA_TX_BATCH_PREPARING;
+	batch->count = 0;
+
+	for (uint16_t i = 0; i < sample_count; i++)
+	{
+		uint16_t read_index = data_tx_history.read_index;
+		// The other batch may be transmitting here. Only write to this FREE /
+		// PREPARING buffer, and leave interrupts enabled during CRC calculation.
+		if (!crc_pack_data(&batch->packets[i * batch->packet_bytes],
+			batch->packet_bytes,
+			&data_tx_history.samples[read_index * data_tx_history.sample_bytes],
+			data_tx_history.sample_bytes))
+		{
+			break; // Leave this sample in history; any completed prefix is still usable
+		}
+		batch->count++;
+
+		// This sample now belongs to the prepared batch. Release its history slot
+		// immediately so CAN reception can reuse it while we prepare later samples.
+		uint32_t irq_state = __get_PRIMASK();
+		__disable_irq();
+		data_tx_history.read_index = (read_index + 1U) % DATA_TX_HISTORY_CAPACITY;
+		data_tx_history.count--;
+		__set_PRIMASK(irq_state);
+	}
+
+	if (batch->count == 0)
+	{
+		batch->state = DATA_TX_BATCH_FREE;
+		return;
+	}
+	batch->state = DATA_TX_BATCH_READY;
+	data_tx_transfer.prepare_index = (data_tx_transfer.prepare_index + 1U) % 2U;
+}
+
+void data_tx_history_drain(void)
+{
+	if (data_tx_packet == NULL){return;}
+
+	// Send an already prepared batch first, so DMA can run while we refill the
+	// spare buffer. A failed start is retried next call, without losing the batch.
+	if (!data_tx_start_batch()){return;}
+	data_tx_prepare_batch();
+
+	// On startup (or after an idle period), the batch we just prepared can start
+	// immediately. This also handles DMA finishing during preparation.
+	data_tx_start_batch();
 }
 
 

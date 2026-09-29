@@ -17,6 +17,7 @@ extern "C" {
 #include <stdbool.h>
 
 #define DATA_TX_HISTORY_CAPACITY 256U
+#define DATA_TX_BATCH_CAPACITY 32U // Samples per buffer; two buffers alternate on UART
 
 // Layout arrays and source data must outlive the packet. Allocate once at startup.
 typedef struct{
@@ -34,12 +35,12 @@ typedef struct{
 	uint16_t sample_bytes;
 	volatile uint16_t write_index;
 	volatile uint16_t read_index;
-	volatile uint16_t count;
+	volatile uint16_t count; // Samples still in history, excluding prepared/transmitting batches
 	volatile uint16_t high_water_mark;
 	volatile uint32_t captured; // Capture attempts, including dropped samples
 	volatile uint32_t dropped; // Queue full or invalid packet: discard the new sample
 	volatile uint32_t submitted; // Samples accepted by UART DMA
-	volatile uint32_t tx_failures; // DMA failed to start; samples remain queued
+	volatile uint32_t tx_failures; // DMA failed to start; the prepared batch is kept for retry
 }DataTxHistory;
 
 extern DataTxHistory data_tx_history;
@@ -47,7 +48,7 @@ TxPacket* tx_packet_init(uint16_t field_count, const uint16_t* length_key,
 	const uint8_t* const* data_sources);
 bool data_tx_arrays_init(void); // Initialize the telemetry packet and its history before CAN starts
 void data_tx_history_capture(void); // Save the current arrays after a valid CAN reply
-void data_tx_history_drain(void); // Start a non-blocking batch from the com loop
+void data_tx_history_drain(void); // Main-loop only: submit ready data and prepare one spare batch
 
 // Holds the data array variable for better readability
 
