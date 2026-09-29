@@ -97,7 +97,7 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		if (m_traj->new_traj_req == true)
 		{
 			m_traj->new_traj_req = false;
-			float dt = 0.005f * m_traj->t_mult;
+			float dt = 0.0002f * m_traj->t_mult;
 			minjerk_start(&(m_traj->jerk_traj), m_cmd->des_pos, m_traj->theta_target, m_traj->time_to_targ, dt);
 			m_traj->traj_cmplt = m_traj->jerk_traj.active;
 		}
