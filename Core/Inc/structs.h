@@ -14,8 +14,12 @@
 #include "cmd_array.h"
 #include "trajectory_manager.h"
 #include "fsm.h"
+#include "data_tx_arrays.h"
 
 // Global Structs ///
+// UART telemetry packet (allocated and initialized in data_tx_arrays.c)
+extern TxPacket* data_tx_packet;
+
 // Bluetooth UART reading buffer
 extern rdg_buf_struct* bt_dma_reader;
 extern uint8_t bt_rx_dma_buffer[];

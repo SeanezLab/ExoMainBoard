@@ -14,21 +14,6 @@
 #include "data_tx_arrays.h"
 #include "cmd_array.h"
 
-// Fill in Below for each new protocol ///////////////////////////////////////////////////////////////////////
-char *payload_entries[] = {"vibro_z_axis", "vibro_gpio","vibro_fft","vibro_state",\
-						"exo_busy","exo_fsm","exo_debug",\
-						"m1_pos","m1_vel","m1_accel","m1_ic","m1_tau","m1_kp","m1_kd",\
-						"m2_pos","m2_vel","m2_accel","m2_ic","m2_tau","m2_kp","m2_kd"};
-
-// Length of each entry, in bytes
-uint16_t payload_length_key[] = {1, 1, 1,\
-								4, 4, 4, 4, 1, 1,\
-								4, 4, 4, 4, 1, 1,\
-								1};
-
-// End of Fill out //////////////////////////////////////////////////////////////////////////////////////////
-
-uint8_t compiled_payload[PAYLOAD_BYTES] = {0};
 uint8_t rx_buffer[RX_BUF_LEN] = {0};
 size_t rx_write_idx = 0;
 
@@ -111,80 +96,83 @@ static uint16_t crc16_ccitt(const uint8_t* buf, uint16_t len)
 	}
 	return crc;
 }
-// Helper function to compile data from different memory locations into one contiguous source for sending
-void compile_data_sources(uint8_t input_count, ...)
+// Helper function to compile data from different memory locations into one contiguous source for sending.
+// Returns false on compilation failure.
+bool compile_data_sources(TxPacket* packet)
 {
-	va_list args;
-	va_start(args, input_count);
+	if (packet == NULL || packet->field_count == 0 ||
+		packet->length_key == NULL || packet->data_sources == NULL)
+	{
+		return false;
+	}
+
+	// Validate that the byte length matches the length key
+	uint32_t total_bytes = 0;
+	for (uint16_t i = 0; i < packet->field_count; i++)
+	{
+		if (packet->data_sources[i] == NULL || packet->length_key[i] == 0)
+		{
+			return false;
+		}
+		total_bytes += packet->length_key[i];
+		if (total_bytes > packet->payload_bytes)
+		{
+			return false;
+		}
+	}
+	if (total_bytes != packet->payload_bytes){return false;}
+
 	uint16_t write_idx = 0;
-
-	// Check the input argument number. NOTE, IT IS IMPORTANT THAT YOU PASS AS MANY ARGUMENTS AS THERE ARE DATAFIELDS!
-	// Otherwise, you're reading random memory
-	if (input_count != PAYLOAD_DATA_FIELDS)
+	for (uint16_t i = 0; i < packet->field_count; i++)
 	{
-		va_end(args);
-		return; // Don't change the payload array. Echoing the same data will be the error state.
+		memcpy(&packet->compiled_payload[write_idx], packet->data_sources[i], packet->length_key[i]);
+		write_idx += packet->length_key[i];
 	}
-
-	for (uint16_t i = 0; i < PAYLOAD_DATA_FIELDS; i++)
-	{
-		uint8_t* src = va_arg(args, uint8_t*);
-		uint16_t len = payload_length_key[i];
-		// Check for null pointer
-		if (src == NULL)
-		{
-			va_end(args);
-			return;
-		}
-		// Check bounds
-		if (write_idx + len > PAYLOAD_BYTES)
-		{
-			va_end(args);
-			return;
-		}
-		memcpy(&compiled_payload[write_idx], src, len);
-		write_idx += payload_length_key[i];
-	}
-	va_end(args);
-	return;
+	return true;
 }
 
-// Pack the predefined data payload. Batches concatenate these same packets.
-void crc_pack_data(uint8_t* pkt, const uint8_t* src)
+// Frames any payload with the packet structure. History batches concatenate these same packets.
+bool crc_pack_data(uint8_t* pkt, uint16_t capacity, const uint8_t* src, uint16_t payload_bytes)
 {
+	if (pkt == NULL || src == NULL || payload_bytes == 0 ||
+		(uint32_t)payload_bytes + CRC_PACKET_OVERHEAD_BYTES > capacity)
+	{
+		return false;
+	}
 	// 1. Header (preamble)
 	pkt[0] = 0x55;
 	pkt[1] = 0xAA;
 
     // 2. 2-byte payload length (little endian)
-    pkt[2] = (uint8_t)(PAYLOAD_BYTES & 0xFF);        // LSB
-    pkt[3] = (uint8_t)((PAYLOAD_BYTES >> 8) & 0xFF); // MSB
+    pkt[2] = (uint8_t)(payload_bytes & 0xFF);        // LSB
+    pkt[3] = (uint8_t)((payload_bytes >> 8) & 0xFF); // MSB
 
     // 3. Copy this sample, not the latest global payload.
-    memcpy(&pkt[4], src, PAYLOAD_BYTES);
+    memcpy(&pkt[4], src, payload_bytes);
 
     // 4. CRC over length + payload
-    //    Starts from pkt[2], length = LEN_FIELD_BYTES + PAYLOAD_BYTES
-    uint16_t crc = crc16_ccitt(&pkt[2], LEN_FIELD_BYTES + PAYLOAD_BYTES);
-    pkt[4 + PAYLOAD_BYTES]     = (uint8_t)(crc & 0xFF);
-    pkt[4 + PAYLOAD_BYTES + 1] = (uint8_t)(crc >> 8);
+    //    Starts from pkt[2], length = LEN_FIELD_BYTES + payload_bytes
+    uint16_t crc = crc16_ccitt(&pkt[2], LEN_FIELD_BYTES + payload_bytes);
+    pkt[4 + payload_bytes]     = (uint8_t)(crc & 0xFF);
+    pkt[4 + payload_bytes + 1] = (uint8_t)(crc >> 8);
 
     // 5. Add 2-byte footer
-    pkt[4 + PAYLOAD_BYTES + 2] = 0x6E;
-    pkt[4 + PAYLOAD_BYTES + 3] = 0x2B;
+    pkt[4 + payload_bytes + 2] = 0x6E;
+    pkt[4 + payload_bytes + 3] = 0x2B;
+	return true;
 }
 
-bool crc_uart_send_data(const uint8_t* src)
+bool crc_uart_send_data(TxPacket* packet)
 {
-	static uint8_t pkt[PKT_BYTES];
-	if ((UART_PORT == 1 && huart1_tx_complete == 0) ||
+	if (packet == NULL || (UART_PORT == 1 && huart1_tx_complete == 0) ||
 		(UART_PORT == 2 && huart2_tx_complete == 0))
 	{
 		return false;
 	}
-	crc_pack_data(pkt, src);
-	if (UART_PORT == 1){return huart1_try_send(pkt, PKT_BYTES);}
-	if (UART_PORT == 2){return huart2_try_send(pkt, PKT_BYTES);}
+	if (!crc_pack_data(packet->tx_buffer, packet->packet_bytes,
+		packet->compiled_payload, packet->payload_bytes)){return false;}
+	if (UART_PORT == 1){return huart1_try_send(packet->tx_buffer, packet->packet_bytes);}
+	if (UART_PORT == 2){return huart2_try_send(packet->tx_buffer, packet->packet_bytes);}
 	return false;
 }
 

@@ -17,7 +17,6 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-#include <stdarg.h>
 
 #include "structs.h"
 #include "data_tx_arrays.h"
@@ -30,24 +29,14 @@ extern "C" {
 #define RX_BUF_LEN 50 // Modify this field if you expect to receive packets >50 bytes.
 
 
-// Fill in Below for each new protocol ///////////////////////////////////////////////////////////////////////
-
-extern uint16_t payload_length_key[]; // Fill out in source file. Array that tell the CRC packager how many bytes are used for each data field
-extern char *payload_entries[]; // Fill out in source file. Human readable list of each entry (Not necessary for the CRC packager but helps me remember).
-#define PAYLOAD_BYTES DATA_TX_SAMPLE_BYTES // Must equal the sum of payload_length_key
-
-// End of Fill out //////////////////////////////////////////////////////////////////////////////////////////
-
 extern uint8_t rx_buffer[];
-extern uint8_t compiled_payload[];
-#define PAYLOAD_DATA_FIELDS sizeof(payload_length_key) / sizeof(payload_length_key[0]) // Does not need to be changed. Number of Payload Data Fields.
-#define PKT_BYTES (HEADER_BYTES + LEN_FIELD_BYTES + PAYLOAD_BYTES + CRC_BYTES + FOOTER_BYTES)
+#define CRC_PACKET_OVERHEAD_BYTES (HEADER_BYTES + LEN_FIELD_BYTES + CRC_BYTES + FOOTER_BYTES)
 
 
 
-void compile_data_sources(uint8_t input_count, ...); // helper function for compiling data from different memory locations to the compiled payload location
-void crc_pack_data(uint8_t* pkt, const uint8_t* src); // Pack one existing-format UART frame
-bool crc_uart_send_data(const uint8_t* src); // False if busy or DMA failed to start
+bool compile_data_sources(TxPacket* packet); // Compile the sources described by this packet
+bool crc_pack_data(uint8_t* pkt, uint16_t capacity, const uint8_t* src, uint16_t payload_bytes);
+bool crc_uart_send_data(TxPacket* packet); // Keep packet allocated until DMA completes
 void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length); // Receive and handle crc_packeted data over UART
 
 

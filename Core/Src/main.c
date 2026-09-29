@@ -68,12 +68,15 @@
 
 
 // Define Bluetooth buffer structures
-rdg_buf_struct* bt_dma_reader;
+rdg_buf_struct* bt_dma_reader = NULL; // Pointers, as these have dynamic memory allocations.
 uint8_t bt_rx_dma_buffer[BT_RX_DMA_SIZE]; // (Written to by DMA)
 
 // Define USART2 (Direct to host) buffer structures
-rdg_buf_struct* usart2_dma_reader;
+rdg_buf_struct* usart2_dma_reader = NULL;
 uint8_t usart2_dma_buffer[USART2_RX_DMA_SIZE];
+
+// Define Transmission Packets to the host (Spinetopia)
+TxPacket* data_tx_packet = NULL;
 
 // Motor CAN Structs
 // Motor 1 (Proximal Joint)
@@ -121,6 +124,7 @@ int main(void)
 	// Initialize the buffers with a given size
 	bt_dma_reader = rdg_buf_init(BT_RX_DMA_SIZE);
 	usart2_dma_reader = rdg_buf_init(USART2_RX_DMA_SIZE);
+
 
   /* USER CODE END 1 */
 
@@ -189,6 +193,11 @@ int main(void)
 	  __HAL_UART_ENABLE_IT(&huart2, UART_IT_RTO);
   }
 
+  // Allocate the transmission packet and it's history before CAN can deliver samples.
+    if (!data_tx_arrays_init())
+    {
+        Error_Handler();
+    }
 
   // Initialize CAN communication structures
   // Motor 1
