@@ -287,7 +287,7 @@ static void can_apply_characterization_reply(const CANCharacterizationReply* rep
 {
 
 	static float last_position = 0;
-	float dt = 1.0f/3333.0f;
+	float dt = 1.0f/5000.0f;
 	float p = reply->position;
 	float v = (p - last_position) / dt;
 	last_position = p;
@@ -301,6 +301,7 @@ static void can_apply_characterization_reply(const CANCharacterizationReply* rep
 		memcpy(m1_pos, &p, sizeof(float));
 		memcpy(m1_vel, &v, sizeof(float));
 		memcpy(m1_ic, &torque_measured, sizeof(float));
+		memcpy(m1_ic_des, &torque_desired, sizeof(float));
 		m1_traj.theta_d_measured = p - m1_traj.theta_current;
 		m1_traj.theta_current = p;
 	}
@@ -309,6 +310,7 @@ static void can_apply_characterization_reply(const CANCharacterizationReply* rep
 		memcpy(m2_pos, &p, sizeof(float));
 		memcpy(m2_vel, &v, sizeof(float));
 		memcpy(m2_ic, &torque_measured, sizeof(float));
+		memcpy(m2_ic_des, &torque_desired, sizeof(float));
 		m2_traj.theta_d_measured = p - m2_traj.theta_current;
 		m2_traj.theta_current = p;
 	}

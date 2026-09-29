@@ -44,7 +44,7 @@ extern FDCAN_HandleTypeDef hfdcan1;
 #define KP_MIN 0.0f
 #define KP_MAX 500.0f
 #define KD_MIN 0.0f
-#define KD_MAX 5.0f
+#define KD_MAX 100.0f
 #define I_MIN -40.0f
 #define I_MAX 40.0f
 #define KT 0.2454f // Motor Constant

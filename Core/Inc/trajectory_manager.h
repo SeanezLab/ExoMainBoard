@@ -16,7 +16,7 @@ extern "C" {
 #include "main.h"
 #include "cmd_array.h"
 
-#define TRAJ_LEN 1000
+#define TRAJ_LEN 5000
 
 typedef struct{
 	float theta0;//in radians
