@@ -59,10 +59,10 @@ void MX_USART2_UART_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 // This is for comms through the bluetooth
-void huart1_try_send(uint8_t* msg, uint16_t msg_size);
+bool huart1_try_send(uint8_t* msg, uint16_t msg_size);
 void huart1_RTO_handler(void);
 // This is for comms through the usb-port
-void huart2_try_send(uint8_t* msg, uint16_t msg_size);
+bool huart2_try_send(uint8_t* msg, uint16_t msg_size);
 void huart2_RTO_handler(void);
 
 /* USER CODE END Prototypes */

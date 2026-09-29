@@ -94,7 +94,7 @@ void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 921600;
+  huart2.Init.BaudRate = 3000000;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -363,7 +363,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 }
 
 
-void huart1_try_send(uint8_t* msg, uint16_t msg_size)
+bool huart1_try_send(uint8_t* msg, uint16_t msg_size)
 {
 	if (huart1_tx_complete == 1)
 	{
@@ -374,8 +374,11 @@ void huart1_try_send(uint8_t* msg, uint16_t msg_size)
 		if (st != HAL_OK)
 		{
 			huart1_tx_complete = 1;
+			return false;
 		}
+		return true;
 	}
+	return false;
 }
 
 
@@ -412,7 +415,7 @@ void huart1_RTO_handler(void)
 	}
 }
 
-void huart2_try_send(uint8_t* msg, uint16_t msg_size)
+bool huart2_try_send(uint8_t* msg, uint16_t msg_size)
 {
 	if (huart2_tx_complete == 1)
 	{
@@ -423,8 +426,11 @@ void huart2_try_send(uint8_t* msg, uint16_t msg_size)
 		if (st != HAL_OK)
 		{
 			huart2_tx_complete = 1;
+			return false;
 		}
+		return true;
 	}
+	return false;
 }
 
 void huart2_RTO_handler(void)

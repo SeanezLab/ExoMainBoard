@@ -287,7 +287,7 @@ static void can_apply_characterization_reply(const CANCharacterizationReply* rep
 {
 
 	static float last_position = 0;
-	float dt = 1.0f/200.0f;
+	float dt = 1.0f/3333.0f;
 	float p = reply->position;
 	float v = (p - last_position) / dt;
 	last_position = p;
@@ -338,6 +338,7 @@ void can_unpack_rx(const CANRxMessage* msg)
 			can_apply_state_reply(&reply);
 			telemetry->last_reply_mode = CAN_REPLY_STATE;
 			telemetry->state_count++;
+			data_tx_history_capture();
 			break;
 		}
 		case CAN_REPLY_CHARACTERIZATION:
@@ -348,6 +349,7 @@ void can_unpack_rx(const CANRxMessage* msg)
 			can_apply_characterization_reply(&reply);
 			telemetry->last_reply_mode = CAN_REPLY_CHARACTERIZATION;
 			telemetry->characterization_count++;
+			data_tx_history_capture();
 			break;
 		}
 		default:

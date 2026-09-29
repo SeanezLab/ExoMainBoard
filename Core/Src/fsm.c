@@ -201,6 +201,9 @@ void run_motor_loop(void)
 	advance_traj(&m1_traj, &m1_cmd);
 	advance_traj(&m2_traj, &m2_cmd);
 	// Handle Commands
+	// Query idle motors at the acquisition rate, independent of UART draining.
+	m1_cmd.new_query = 1;
+	m2_cmd.new_query = 1;
 	handle_m_cmd(&m1_cmd, &m1_tx);
 	handle_m_cmd(&m2_cmd, &m2_tx);
 	// Turn off flag
@@ -232,6 +235,8 @@ void run_transparency_loop(void)
 	 zero_motor_gains(&m2_cmd);
 
 	// Handle Commands
+	m1_cmd.new_query = 1;
+	m2_cmd.new_query = 1;
 	handle_m_cmd(&m1_cmd, &m1_tx);
 	handle_m_cmd(&m2_cmd, &m2_tx);
 	// Turn off flag
@@ -240,32 +245,8 @@ void run_transparency_loop(void)
 
 void run_com_loop(void)
 {
-	/* This is the loop that queries the exoskeleton state and transmits/receives
-	 * commands from the host.
-	 */
-	  // Query the Motor states
-	  m1_cmd.new_query = 1;
-	  m2_cmd.new_query = 1;
-	  // Query the FSM states
-	  memcpy(exo_fsm, &(state.state), (size_t)sizeof(state.state));
-
-//	  increment_frame_counter();
-	  memcpy(frame, &frame_counter, (size_t)sizeof(frame_counter));
-
-	  // Transmit states
-//	  compile_data_sources(22,
-//			  exo_busy, exo_fsm, exo_debug,
-//			  m1_pos, m1_des, m1_vel, m1_accel, m1_ic, m1_tau, m1_kp, m1_kd, m1_mode,
-//			  m2_pos, m2_des, m2_vel, m2_accel, m2_ic, m2_tau, m2_kp, m2_kd, m2_mode,
-//			  frame);
-	  compile_data_sources(16,
-	  			  exo_busy, exo_fsm, exo_debug,
-	  			  m1_pos, m1_des, m1_vel, m1_ic, m1_mode, m1_traj_status,
-	  			  m2_pos, m2_des, m2_vel, m2_ic, m2_mode, m2_traj_status,
-	  			  frame);
-	  // Send data
-	  crc_uart_send_data(compiled_payload);
-	  // Turn off com_loop_flag
-	  com_loop_flag = 0;
+	// Submit queued snapshots as ordinary back-to-back packets. Never wait for UART.
+	data_tx_history_drain();
+	com_loop_flag = 0;
 }
 

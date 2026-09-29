@@ -149,20 +149,9 @@ void compile_data_sources(uint8_t input_count, ...)
 	return;
 }
 
-// Package data and send over UART
-// Packet the predefined data payload (Non-generic)
-void crc_uart_send_data(const uint8_t* src)
+// Pack the predefined data payload. Batches concatenate these same packets.
+void crc_pack_data(uint8_t* pkt, const uint8_t* src)
 {
-
-	volatile static uint8_t pkt[PKT_BYTES];
-
-	// Check if the packet buffer is in use
-	if ((UART_PORT == 1 && huart1_tx_complete == 0) ||
-	    (UART_PORT == 2 && huart2_tx_complete == 0))
-	{
-	    return; // Drop this update while DMA is using the packet buffer
-	}
-
 	// 1. Header (preamble)
 	pkt[0] = 0x55;
 	pkt[1] = 0xAA;
@@ -171,8 +160,8 @@ void crc_uart_send_data(const uint8_t* src)
     pkt[2] = (uint8_t)(PAYLOAD_BYTES & 0xFF);        // LSB
     pkt[3] = (uint8_t)((PAYLOAD_BYTES >> 8) & 0xFF); // MSB
 
-    // 3. Build the payload: Copy the data from the compiled array to the delivery packet.
-    memcpy(&pkt[4], compiled_payload, PAYLOAD_BYTES);
+    // 3. Copy this sample, not the latest global payload.
+    memcpy(&pkt[4], src, PAYLOAD_BYTES);
 
     // 4. CRC over length + payload
     //    Starts from pkt[2], length = LEN_FIELD_BYTES + PAYLOAD_BYTES
@@ -183,17 +172,20 @@ void crc_uart_send_data(const uint8_t* src)
     // 5. Add 2-byte footer
     pkt[4 + PAYLOAD_BYTES + 2] = 0x6E;
     pkt[4 + PAYLOAD_BYTES + 3] = 0x2B;
+}
 
-    // 6. Transmit over UART
-    if (UART_PORT == 1)
-    {
-    	huart1_try_send(pkt, PKT_BYTES);
-    }
-	if (UART_PORT == 2)
+bool crc_uart_send_data(const uint8_t* src)
+{
+	static uint8_t pkt[PKT_BYTES];
+	if ((UART_PORT == 1 && huart1_tx_complete == 0) ||
+		(UART_PORT == 2 && huart2_tx_complete == 0))
 	{
-		huart2_try_send(pkt, PKT_BYTES);
+		return false;
 	}
-
+	crc_pack_data(pkt, src);
+	if (UART_PORT == 1){return huart1_try_send(pkt, PKT_BYTES);}
+	if (UART_PORT == 2){return huart2_try_send(pkt, PKT_BYTES);}
+	return false;
 }
 
 // Parses incoming information. This will be the most variable amongst implementations if reusing this file on other projects.

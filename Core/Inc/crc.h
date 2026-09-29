@@ -20,6 +20,7 @@ extern "C" {
 #include <stdarg.h>
 
 #include "structs.h"
+#include "data_tx_arrays.h"
 
 // Two byte protocol
 #define LEN_FIELD_BYTES 2
@@ -33,7 +34,7 @@ extern "C" {
 
 extern uint16_t payload_length_key[]; // Fill out in source file. Array that tell the CRC packager how many bytes are used for each data field
 extern char *payload_entries[]; // Fill out in source file. Human readable list of each entry (Not necessary for the CRC packager but helps me remember).
-#define PAYLOAD_BYTES 40 // Total number of Payload Bytes (Be sure to calculate this correctly! Its the sum of payload_length_key)
+#define PAYLOAD_BYTES DATA_TX_SAMPLE_BYTES // Must equal the sum of payload_length_key
 
 // End of Fill out //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -45,7 +46,8 @@ extern uint8_t compiled_payload[];
 
 
 void compile_data_sources(uint8_t input_count, ...); // helper function for compiling data from different memory locations to the compiled payload location
-void crc_uart_send_data(const uint8_t* src); // Send crc-packeted data over UART
+void crc_pack_data(uint8_t* pkt, const uint8_t* src); // Pack one existing-format UART frame
+bool crc_uart_send_data(const uint8_t* src); // False if busy or DMA failed to start
 void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length); // Receive and handle crc_packeted data over UART
 
 
