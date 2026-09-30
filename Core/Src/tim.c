@@ -23,6 +23,7 @@
 /* USER CODE BEGIN 0 */
 uint8_t com_loop_flag = 0;
 uint8_t m_cmd_loop_flag = 0;
+volatile uint32_t motor_loop_ticks = 0;
 float traj_clock = 0;
 
 /* USER CODE END 0 */
@@ -167,12 +168,22 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
 
 /* USER CODE BEGIN 1 */
 
+float motor_loop_period_seconds(void)
+{
+	// TIM7 uses APB1; timer clocks double when the APB prescaler is not one.
+	float timer_clock = (float)HAL_RCC_GetPCLK1Freq();
+	if ((RCC->CFGR & RCC_CFGR_PPRE1) != 0){timer_clock *= 2.0f;}
+	return ((float)htim7.Init.Prescaler + 1.0f) *
+		((float)htim7.Init.Period + 1.0f) / timer_clock;
+}
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Instance == TIM6) {
     com_loop_flag = 1;   // set flag / increment counter
   }
   if (htim->Instance == TIM7) {
+	  motor_loop_ticks++; // Count timer ticks even if the main-loop flag was already set
 	  m_cmd_loop_flag = 1;   // set flag / increment counter
   }
 }

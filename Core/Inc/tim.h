@@ -39,6 +39,7 @@ extern TIM_HandleTypeDef htim7;
 /* USER CODE BEGIN Private defines */
 extern uint8_t com_loop_flag;
 extern uint8_t m_cmd_loop_flag;
+extern volatile uint32_t motor_loop_ticks;
 extern float traj_clock;
 
 /* USER CODE END Private defines */
@@ -47,6 +48,7 @@ void MX_TIM6_Init(void);
 void MX_TIM7_Init(void);
 
 /* USER CODE BEGIN Prototypes */
+float motor_loop_period_seconds(void);
 
 /* USER CODE END Prototypes */
 

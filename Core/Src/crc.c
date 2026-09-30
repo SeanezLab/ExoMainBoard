@@ -8,11 +8,13 @@
 
 
 #include <limits.h>
+#include <math.h>
 #include "usart.h"
 #include "crc.h"
 #include "circular_reading_buffer.h"
 #include "data_tx_arrays.h"
 #include "cmd_array.h"
+#include "tim.h"
 
 uint8_t rx_buffer[RX_BUF_LEN] = {0};
 size_t rx_write_idx = 0;
@@ -361,6 +363,56 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 			}
 
 
+		}
+		else if (condition == 5)
+		{
+			if (payload_length != 8 * sizeof(float)){return;}
+			// Torque chirp: write the requested parameters and let generate_traj_cmd start it.
+			float incoming_m_id;
+			float incoming_start_freq;
+			float incoming_end_freq;
+			float incoming_duration;
+			float incoming_amplitude;
+			float incoming_ramp_time;
+			float incoming_bias;
+			memcpy(&incoming_m_id, &(rdg_struct->buffer[payload_start+sizeof(float)]), sizeof(float));
+			memcpy(&incoming_start_freq, &(rdg_struct->buffer[payload_start+(2*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_end_freq, &(rdg_struct->buffer[payload_start+(3*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_duration, &(rdg_struct->buffer[payload_start+(4*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_amplitude, &(rdg_struct->buffer[payload_start+(5*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_ramp_time, &(rdg_struct->buffer[payload_start+(6*sizeof(float))]), sizeof(float));
+			memcpy(&incoming_bias, &(rdg_struct->buffer[payload_start+(7*sizeof(float))]), sizeof(float));
+
+			// Only run the experiment in command mode, with an already enabled motor.
+			if (state.state != COMMAND_MODE){return;}
+			if (!logchirp_parameters_valid(incoming_start_freq, incoming_end_freq,
+				incoming_duration, incoming_amplitude, incoming_ramp_time, incoming_bias,
+				motor_loop_period_seconds())){return;}
+
+			if (incoming_m_id == 1)
+			{
+				if (m1_cmd.des_mode != 1 || m1_cmd.new_sp_cmd || !isfinite(m1_cmd.des_pos)){return;}
+				m1_traj.traj_mode = TRAJ_LOG_CHIRP;
+				m1_traj.chirp_start_freq = incoming_start_freq;
+				m1_traj.chirp_end_freq = incoming_end_freq;
+				m1_traj.chirp_duration = incoming_duration;
+				m1_traj.chirp_amplitude = incoming_amplitude;
+				m1_traj.chirp_ramp_time = incoming_ramp_time;
+				m1_traj.chirp_bias = incoming_bias;
+				m1_traj.new_traj_req = 1;
+			}
+			if (incoming_m_id == 2)
+			{
+				if (m2_cmd.des_mode != 1 || m2_cmd.new_sp_cmd || !isfinite(m2_cmd.des_pos)){return;}
+				m2_traj.traj_mode = TRAJ_LOG_CHIRP;
+				m2_traj.chirp_start_freq = incoming_start_freq;
+				m2_traj.chirp_end_freq = incoming_end_freq;
+				m2_traj.chirp_duration = incoming_duration;
+				m2_traj.chirp_amplitude = incoming_amplitude;
+				m2_traj.chirp_ramp_time = incoming_ramp_time;
+				m2_traj.chirp_bias = incoming_bias;
+				m2_traj.new_traj_req = 1;
+			}
 		}
 		else
 		{

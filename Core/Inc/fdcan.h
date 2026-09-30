@@ -77,6 +77,7 @@ typedef struct{
 	CANCharacterizationReply characterization;
 	uint32_t state_count;
 	uint32_t characterization_count;
+	uint32_t last_reply_ms; // HAL tick when the latest valid reply was applied
 	CANReplyMode last_reply_mode;
 }CANMotorTelemetry;
 

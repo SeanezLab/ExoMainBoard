@@ -340,6 +340,7 @@ void can_unpack_rx(const CANRxMessage* msg)
 			can_apply_state_reply(&reply);
 			telemetry->last_reply_mode = CAN_REPLY_STATE;
 			telemetry->state_count++;
+			telemetry->last_reply_ms = HAL_GetTick();
 			data_tx_history_capture();
 			break;
 		}
@@ -351,6 +352,7 @@ void can_unpack_rx(const CANRxMessage* msg)
 			can_apply_characterization_reply(&reply);
 			telemetry->last_reply_mode = CAN_REPLY_CHARACTERIZATION;
 			telemetry->characterization_count++;
+			telemetry->last_reply_ms = HAL_GetTick();
 			data_tx_history_capture();
 			break;
 		}

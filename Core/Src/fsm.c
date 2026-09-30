@@ -160,6 +160,9 @@ void run_transparency_loop(void);
  }
  void enter_transparency_state(void)
  {
+	 // A stopped chirp must not resume when command mode is selected again.
+	 cancel_logchirp(&m1_traj, &m1_cmd);
+	 cancel_logchirp(&m2_traj, &m2_cmd);
 	 // Save the current control gains and zero out motor 1
 	 save_motor_gains(&m1_cmd);
 	 zero_motor_gains(&m1_cmd);
