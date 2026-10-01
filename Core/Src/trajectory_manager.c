@@ -14,6 +14,8 @@
 #include <string.h>
 #include <math.h>
 
+#define DT 0.00033333f
+
 float t_ff;
 static void abort_logchirp(MotorTrajectory* m_traj, MotorCommand* m_cmd, ChirpAbortReason reason);
 
@@ -122,16 +124,6 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 			m_traj->traj_cmplt = m_traj->jerk_traj.active;
 		}
 
-		if (m_traj->motor_id == 1)
-		{
-			float theta_mod = (m_traj->theta) * -1;
-			memcpy(m1_des, &theta_mod, sizeof(float));
-		}
-		else if (m_traj->motor_id == 2)
-		{
-			memcpy(m2_des, &(m_traj->theta), sizeof(float));
-		}
-
 		t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
 		m_cmd->des_pos = m_traj->theta;
 		m_cmd->des_v = m_traj->theta_d;
@@ -156,16 +148,6 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		else if (m_traj->const_vel_traj.active == false)
 		{
 			m_traj->traj_cmplt = m_traj->const_vel_traj.active;
-		}
-
-		if (m_traj->motor_id == 1)
-		{
-			float theta_mod = (m_traj->theta) * -1;
-			memcpy(m1_des, &theta_mod, sizeof(float));
-		}
-		else if (m_traj->motor_id == 2)
-		{
-			memcpy(m2_des, &(m_traj->theta), sizeof(float));
 		}
 
 		t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
@@ -264,17 +246,7 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		m_cmd->new_pos = 1;
 		m_cmd->new_cont = 1;
 		float position_tx = (m_traj->motor_id == 1) ? -tr->hold_position : tr->hold_position;
-		if (m_traj->motor_id == 1)
-		{
-			memcpy(m1_des, &position_tx, sizeof(position_tx));
-			memcpy(m1_tau_ff, &(m_cmd->des_tff), sizeof(m_cmd->des_tff));
-		}
-		else
-		{
-			memcpy(m2_des, &position_tx, sizeof(position_tx));
-			memcpy(m2_tau_ff, &(m_cmd->des_tff), sizeof(m_cmd->des_tff));
-		}
-		return;
+
 	}
 	}
 }
