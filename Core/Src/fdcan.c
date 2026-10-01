@@ -194,6 +194,28 @@ bool can_pack_tx(CANTxMessage* msg, const CANCommandData* command, CANRequestMod
 	};
 	can_pack_command_fields(msg->data, &fields, mode);
 	msg->tx_header.DataLength = FDCAN_DLC_BYTES_8;
+	// Log the actual commands that the motor driver sees after compression
+	float pos_compressed = uint_to_float(fields.position, P_MIN, P_MAX, 16);
+	float kp_compressed = uint_to_float(fields.kp, KP_MIN, KP_MAX, 12);
+	float kd_compressed = uint_to_float(fields.kd, KD_MIN, KD_MAX, 9);
+	float tau_compressed = uint_to_float(fields.torque, I_MIN*KT*GR, I_MAX*KT*GR, 12);
+	if (msg->id == 1)
+	{
+		pos_compressed *= 1;
+		memcpy(m1_des, &pos_compressed, sizeof(float)); //Apply the sign flip for M1
+		memcpy(m1_kp, &kp_compressed, sizeof(float));
+		memcpy(m1_kd, &kd_compressed, sizeof(float));
+		memcpy(m1_tau_ff, &tau_compressed, sizeof(float));
+	}
+	else if (msg->id == 2)
+	{
+		memcpy(m2_des, &pos_compressed, sizeof(float)); //Apply the sign flip for M1
+		memcpy(m2_kp, &kp_compressed, sizeof(float));
+		memcpy(m2_kd, &kd_compressed, sizeof(float));
+		memcpy(m2_tau_ff, &tau_compressed, sizeof(float));
+	}
+
+
 	return true;
 }
 

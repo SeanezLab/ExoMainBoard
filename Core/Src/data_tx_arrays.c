@@ -122,19 +122,36 @@ bool data_tx_arrays_init(void)
 	if (data_tx_packet != NULL){return true;}
 
 	// Field order is the existing telemetry payload. Keep these tables together.
+//	static const uint8_t* const data_sources[] = {
+//		exo_busy, exo_fsm, exo_debug,
+//		m1_pos, m1_des, m1_vel, m1_ic, m1_ic_des, m1_kp, m1_kd, m1_tau_ff, m1_mode, m1_traj_status,
+//		m2_pos, m2_des, m2_vel, m2_ic, m2_ic_des, m2_kp, m2_kd, m2_tau_ff, m2_mode, m2_traj_status,
+//		frame, tx_dropped, high_water_mark, failures
+//	};
+
 	static const uint8_t* const data_sources[] = {
 		exo_busy, exo_fsm, exo_debug,
-		m1_pos, m1_des, m1_vel, m1_ic, m1_ic_des, m1_tau_ff, m1_mode, m1_traj_status,
-		m2_pos, m2_des, m2_vel, m2_ic, m2_ic_des, m2_tau_ff, m2_mode, m2_traj_status,
+		m1_pos, m1_des, m1_vel, m1_ic, m1_ic_des,
+		m2_pos, m2_des, m2_vel, m2_ic, m2_ic_des, m2_kp, m2_kd, m2_tau_ff, m2_mode, m2_traj_status,
 		frame, tx_dropped, high_water_mark, failures
 	};
-	// Create the length key
+
+//	// Create the length key
+//	static const uint16_t length_key[] = {
+//		1, 1, 1,
+//		4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
+//		4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
+//		1, 4, 2, 4
+//	};
+
 	static const uint16_t length_key[] = {
 		1, 1, 1,
-		4, 4, 4, 4, 4, 4, 1, 1,
-		4, 4, 4, 4, 4, 4, 1, 1,
+		4, 4, 4, 4, 4,
+		4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
 		1, 4, 2, 4
 	};
+
+
 	// Check to ensure that the data packet is valid at compile time.
 	_Static_assert(sizeof(data_sources) / sizeof(data_sources[0]) ==
 		sizeof(length_key) / sizeof(length_key[0]), "Each source must have a length");
