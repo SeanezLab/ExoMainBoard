@@ -18,7 +18,7 @@ extern "C" {
 
 #define TRAJ_LEN 5000
 #define TRAJ_LOG_CHIRP 4U
-#define CHIRP_TORQUE_LIMIT_NM 8.0f
+#define CHIRP_TORQUE_LIMIT_NM 20.0f
 #define CHIRP_POSITION_LIMIT_RAD 0.7853981634f // 45 degrees from the held setpoint
 #define CHIRP_FEEDBACK_TIMEOUT_MS 100U
 
@@ -53,10 +53,15 @@ typedef struct{
 	float start_freq, end_freq; // Hz
 	float T, t, dt; // Seconds; dt is the motor timer period, not COM period
 	float amplitude, bias; // Output-side Nm
-	float ramp_time, log_rate;
+	float ramp_time;
+	double log_rate;
+	// Keep the accumulator precise on long sweeps. Normal steps only add/multiply.
+	double phase, frequency_state;
+	double frequency_multiplier, phase_per_hz; // Calculated once at startup
 	float frequency, perturbation, torque;
 	float hold_position; // Driver coordinates, radians
 	uint32_t start_tick;
+	uint32_t elapsed_ticks;
 	bool active;
 	ChirpAbortReason abort_reason;
 }LogChirpTraj;
@@ -100,7 +105,7 @@ bool logchirp_parameters_valid(float start_freq, float end_freq, float duration,
 	float amplitude, float ramp_time, float bias, float dt);
 bool logchirp_start(LogChirpTraj* tr, float start_freq, float end_freq, float duration,
 	float amplitude, float ramp_time, float bias, float dt);
-bool logchirp_step(LogChirpTraj* tr, float elapsed_seconds, float* torque);
+bool logchirp_step(LogChirpTraj* tr, uint32_t elapsed_ticks, float* torque);
 void minjerk_start(MinJerkTraj* tr, float theta0, float thetaf, float T, float dt);
 bool minjerk_step(MinJerkTraj* tr, float* theta, float* theta_dot, float* theta_ddot);
 void constvel_start(ConstVel* tr, float theta0, float thetaf, float T, float dt);

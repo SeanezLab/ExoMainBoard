@@ -17,7 +17,7 @@
 #include "data_tx_arrays.h"
 #include "crc.h"
 
-static void run_motor_loop(void);
+//static void run_motor_loop(void);
 static void run_com_loop(void);
 void run_transparency_loop(void);
 
@@ -40,10 +40,10 @@ void run_transparency_loop(void);
 			  {
 				  run_com_loop();
 			  }
-			  if (m_cmd_loop_flag == 1)
-			  {
-				  run_motor_loop();
-			  }
+//			  if (m_cmd_loop_flag == 1)
+//			  {
+//				  run_motor_loop();
+//			  }
 			 break;
 
 		 case TRANSPARENCY_MODE:

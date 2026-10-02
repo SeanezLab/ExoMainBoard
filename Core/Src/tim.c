@@ -19,6 +19,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "tim.h"
+#include "fsm.h"
 
 /* USER CODE BEGIN 0 */
 uint8_t com_loop_flag = 0;
@@ -183,8 +184,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     com_loop_flag = 1;   // set flag / increment counter
   }
   if (htim->Instance == TIM7) {
-	  motor_loop_ticks++; // Count timer ticks even if the main-loop flag was already set
-	  m_cmd_loop_flag = 1;   // set flag / increment counter
+	  motor_loop_ticks++; // Chirp timing; advance before generating this tick's command
+//	  m_cmd_loop_flag = 1;   // set flag / increment counter
+	  run_motor_loop();
   }
 }
 

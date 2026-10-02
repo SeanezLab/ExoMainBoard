@@ -230,8 +230,8 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 			return;
 		}
 
-		float elapsed = (float)((uint32_t)(motor_loop_ticks - tr->start_tick) * (double)tr->dt);
-		logchirp_step(tr, elapsed, &m_cmd->des_tff);
+		uint32_t elapsed_ticks = motor_loop_ticks - tr->start_tick;
+		logchirp_step(tr, elapsed_ticks, &m_cmd->des_tff);
 		if (tr->abort_reason != CHIRP_ABORT_NONE || !isfinite(m_cmd->des_tff))
 		{
 			abort_logchirp(m_traj, m_cmd, CHIRP_ABORT_PARAMETERS);
@@ -307,16 +307,25 @@ bool logchirp_start(LogChirpTraj* tr, float start_freq, float end_freq, float du
 	tr->amplitude = amplitude;
 	tr->bias = bias;
 	tr->ramp_time = ramp_time;
-	tr->log_rate = (logf(end_freq) - logf(start_freq)) / duration;
+	tr->log_rate = log((double)end_freq / start_freq) / duration;
+	tr->frequency_state = start_freq;
+	tr->frequency_multiplier = exp(tr->log_rate * dt);
+	const double two_pi = 6.283185307179586;
+	tr->phase_per_hz = two_pi * dt;
+	if (tr->log_rate != 0.0)
+	{
+		// Exact integral over one timer period, per Hz at the start of that period.
+		tr->phase_per_hz = two_pi * expm1(tr->log_rate * dt) / tr->log_rate;
+	}
 	tr->frequency = start_freq;
 	tr->torque = bias;
 	tr->active = true;
 	return true;
 }
 
-bool logchirp_step(LogChirpTraj* tr, float elapsed_seconds, float* torque)
+bool logchirp_step(LogChirpTraj* tr, uint32_t elapsed_ticks, float* torque)
 {
-	if (!isfinite(elapsed_seconds) || elapsed_seconds < tr->t)
+	if (elapsed_ticks < tr->elapsed_ticks)
 	{
 		tr->active = false;
 		tr->abort_reason = CHIRP_ABORT_PARAMETERS;
@@ -328,8 +337,11 @@ bool logchirp_step(LogChirpTraj* tr, float elapsed_seconds, float* torque)
 		if (torque){*torque = tr->torque;}
 		return false;
 	}
-	tr->t = fminf(elapsed_seconds, tr->T);
-	if (!tr->active || tr->t >= tr->T)
+	uint32_t ticks_to_advance = elapsed_ticks - tr->elapsed_ticks;
+	tr->elapsed_ticks = elapsed_ticks;
+	double elapsed_seconds = (double)elapsed_ticks * tr->dt;
+	tr->t = fminf((float)elapsed_seconds, tr->T);
+	if (!tr->active || elapsed_seconds >= tr->T)
 	{
 		tr->active = false;
 		tr->frequency = tr->end_freq;
@@ -339,26 +351,40 @@ bool logchirp_step(LogChirpTraj* tr, float elapsed_seconds, float* torque)
 		return false;
 	}
 
-	// Integrate f(t) = f0 * exp(k*t) analytically. Do not use sin(2*pi*f(t)*t).
-	// Double precision keeps phase accurate on long sweeps; expm1 is stable near zero.
 	const double two_pi = 6.283185307179586;
-	double phase;
-	if (tr->log_rate == 0.0f)
+	if (ticks_to_advance == 1)
 	{
-		phase = two_pi * tr->start_freq * tr->t; // Equal endpoints give a fixed-frequency sine
+		// Integrate this interval using its starting frequency, then advance frequency.
+		tr->phase += tr->frequency_state * tr->phase_per_hz;
+		tr->frequency_state *= tr->frequency_multiplier;
+		// Frequencies are below Nyquist, so one tick adds less than pi radians.
+		if (tr->phase >= two_pi){tr->phase -= two_pi;}
 	}
-	else
+	else if (ticks_to_advance > 1)
 	{
-		phase = two_pi * tr->start_freq * expm1((double)tr->log_rate * tr->t) / tr->log_rate;
+		// A delayed call must not stretch the sweep. Resynchronize directly instead
+		// of looping over missed samples. Expensive math is only used on this path.
+		if (tr->log_rate == 0.0)
+		{
+			tr->phase = two_pi * tr->start_freq * elapsed_seconds;
+			tr->frequency_state = tr->start_freq;
+		}
+		else
+		{
+			tr->phase = two_pi * tr->start_freq * expm1(tr->log_rate * elapsed_seconds) / tr->log_rate;
+			tr->frequency_state = tr->start_freq * exp(tr->log_rate * elapsed_seconds);
+		}
+		tr->phase = fmod(tr->phase, two_pi);
 	}
-	tr->frequency = expf(logf(tr->start_freq) + tr->log_rate * tr->t);
+	// Zero elapsed ticks leave the waveform unchanged, including on its first call.
+	tr->frequency = (float)tr->frequency_state;
 	float envelope = 1.0f;
 	float edge_time = fminf(tr->t, tr->T - tr->t);
 	if (tr->ramp_time > 0.0f && edge_time < tr->ramp_time)
 	{
 		envelope = 0.5f - 0.5f * cosf(3.1415926536f * edge_time / tr->ramp_time);
 	}
-	tr->perturbation = tr->amplitude * envelope * sinf((float)fmod(phase, two_pi));
+	tr->perturbation = tr->amplitude * envelope * sinf((float)tr->phase);
 	tr->torque = tr->bias + tr->perturbation;
 	if (torque){*torque = tr->torque;}
 	return true;
