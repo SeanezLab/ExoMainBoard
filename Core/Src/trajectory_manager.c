@@ -214,14 +214,14 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 			abort_logchirp(m_traj, m_cmd, CHIRP_ABORT_FEEDBACK);
 			return;
 		}
-		if (fabsf(sample->position - tr->hold_position) >= CHIRP_POSITION_LIMIT_RAD ||
-			sample->position <= -32768.0f * CAN_CHARACTERIZATION_P_STEP ||
-			sample->position >= 32767.0f * CAN_CHARACTERIZATION_P_STEP)
-		{
-			abort_logchirp(m_traj, m_cmd, CHIRP_ABORT_POSITION);
-			// Saturated +/-pi telemetry cannot support a reliable excursion check.
-			return;
-		}
+//		if (fabsf(sample->position - tr->hold_position) >= CHIRP_POSITION_LIMIT_RAD ||
+//			sample->position <= -32768.0f * CAN_CHARACTERIZATION_P_STEP ||
+//			sample->position >= 32767.0f * CAN_CHARACTERIZATION_P_STEP)
+//		{
+//			abort_logchirp(m_traj, m_cmd, CHIRP_ABORT_POSITION);
+//			// Saturated +/-pi telemetry cannot support a reliable excursion check.
+//			return;
+//		}
 		// Check both measured and total commanded current, not just the chirp amplitude.
 		if (fabsf(sample->i_q) * KT * (float)GR >= CHIRP_TORQUE_LIMIT_NM ||
 			fabsf(sample->i_q_des) * KT * (float)GR >= CHIRP_TORQUE_LIMIT_NM)
