@@ -42,7 +42,7 @@ extern FDCAN_HandleTypeDef hfdcan1;
 #define V_MIN -65.0f
 #define V_MAX 65.0f
 #define KP_MIN 0.0f
-#define KP_MAX 1000.0f
+#define KP_MAX 2000.0f
 #define KD_MIN 0.0f
 #define KD_MAX 100.0f
 #define I_MIN -40.0f
