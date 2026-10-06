@@ -18,6 +18,7 @@ extern "C" {
 
 #define TRAJ_LEN 5000
 #define TRAJ_LOG_CHIRP 4U
+#define TRAJ_POSITION_LOG_CHIRP 5U
 #define CHIRP_TORQUE_LIMIT_NM 20.0f
 #define CHIRP_POSITION_LIMIT_RAD 0.7853981634f // 45 degrees from the held setpoint
 #define CHIRP_FEEDBACK_TIMEOUT_MS 100U
@@ -52,13 +53,13 @@ typedef enum{
 typedef struct{
 	float start_freq, end_freq; // Hz
 	float T, t, dt; // Seconds; dt is the motor timer period, not COM period
-	float amplitude, bias; // Output-side Nm
+	float amplitude, bias; // Peak amplitude and bias: output-side Nm or radians
 	float ramp_time;
 	double log_rate;
 	// Keep the accumulator precise on long sweeps. Normal steps only add/multiply.
 	double phase, frequency_state;
 	double frequency_multiplier, phase_per_hz; // Calculated once at startup
-	float frequency, perturbation, torque;
+	float frequency, perturbation, output;
 	float hold_position; // Driver coordinates, radians
 	uint32_t start_tick;
 	uint32_t elapsed_ticks;
@@ -68,7 +69,7 @@ typedef struct{
 
 typedef struct{
 	uint8_t motor_id;
-	uint8_t traj_mode; // 0: Free move, 1: Sinusoid, 2: Minimum jerk, 3: Constant velocity, 4: Torque chirp.
+	uint8_t traj_mode; // 0: Free move, 1: Sinusoid, 2: Minimum jerk, 3: Constant velocity, 4: Torque chirp, 5: Position chirp.
 	uint32_t cmd_idx;
 	float pos_array[TRAJ_LEN];
 	uint8_t t_mult; // How many tics of the cmd_loop to wait before generating a new trajectory/ Affects the rate commands are send
@@ -92,6 +93,7 @@ typedef struct{
 	MinJerkTraj jerk_traj;
 	ConstVel const_vel_traj;
 	float chirp_start_freq, chirp_end_freq;
+	// Torque: peak amplitude/bias in Nm. Position: peak-to-peak amplitude/setpoint in radians.
 	float chirp_duration, chirp_amplitude, chirp_ramp_time, chirp_bias;
 	LogChirpTraj chirp_traj;
 }MotorTrajectory;
@@ -102,10 +104,10 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd);
 void reset_target_pos(MotorTrajectory* m_traj, MotorCommand* m_cmd);
 void cancel_logchirp(MotorTrajectory* m_traj, MotorCommand* m_cmd);
 bool logchirp_parameters_valid(float start_freq, float end_freq, float duration,
-	float amplitude, float ramp_time, float bias, float dt);
+	float amplitude, float ramp_time, float bias, float dt, uint8_t traj_mode);
 bool logchirp_start(LogChirpTraj* tr, float start_freq, float end_freq, float duration,
-	float amplitude, float ramp_time, float bias, float dt);
-bool logchirp_step(LogChirpTraj* tr, uint32_t elapsed_ticks, float* torque);
+	float amplitude, float ramp_time, float bias, float dt, uint8_t traj_mode);
+bool logchirp_step(LogChirpTraj* tr, uint32_t elapsed_ticks, float* output);
 void minjerk_start(MinJerkTraj* tr, float theta0, float thetaf, float T, float dt);
 bool minjerk_step(MinJerkTraj* tr, float* theta, float* theta_dot, float* theta_ddot);
 void constvel_start(ConstVel* tr, float theta0, float thetaf, float T, float dt);

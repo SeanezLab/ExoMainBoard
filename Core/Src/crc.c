@@ -364,10 +364,12 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 
 
 		}
-		else if (condition == 5)
+		else if (condition == 5 || condition == 6)
 		{
 			if (payload_length != 8 * sizeof(float)){return;}
-			// Torque chirp: write the requested parameters and let generate_traj_cmd start it.
+			// Chirp: float[condition, motor_id, start_Hz, end_Hz, duration_s, amplitude, ramp_s, bias].
+			// Type 5: peak torque/bias in Nm. Type 6: peak-to-peak position/setpoint in radians.
+			uint8_t traj_mode = (condition == 6) ? TRAJ_POSITION_LOG_CHIRP : TRAJ_LOG_CHIRP;
 			float incoming_m_id;
 			float incoming_start_freq;
 			float incoming_end_freq;
@@ -387,12 +389,12 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 			if (state.state != COMMAND_MODE){return;}
 			if (!logchirp_parameters_valid(incoming_start_freq, incoming_end_freq,
 				incoming_duration, incoming_amplitude, incoming_ramp_time, incoming_bias,
-				motor_loop_period_seconds())){return;}
+				motor_loop_period_seconds(), traj_mode)){return;}
 
 			if (incoming_m_id == 1)
 			{
 				if (m1_cmd.des_mode != 1 || m1_cmd.new_sp_cmd || !isfinite(m1_cmd.des_pos)){return;}
-				m1_traj.traj_mode = TRAJ_LOG_CHIRP;
+				m1_traj.traj_mode = traj_mode;
 				m1_traj.chirp_start_freq = incoming_start_freq;
 				m1_traj.chirp_end_freq = incoming_end_freq;
 				m1_traj.chirp_duration = incoming_duration;
@@ -404,7 +406,7 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 			if (incoming_m_id == 2)
 			{
 				if (m2_cmd.des_mode != 1 || m2_cmd.new_sp_cmd || !isfinite(m2_cmd.des_pos)){return;}
-				m2_traj.traj_mode = TRAJ_LOG_CHIRP;
+				m2_traj.traj_mode = traj_mode;
 				m2_traj.chirp_start_freq = incoming_start_freq;
 				m2_traj.chirp_end_freq = incoming_end_freq;
 				m2_traj.chirp_duration = incoming_duration;
