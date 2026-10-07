@@ -58,6 +58,7 @@ extern uint8_t exo_busy[];
 extern uint8_t exo_fsm[];
 extern uint8_t exo_debug[];
 // Motor drive 1 data (knee)
+extern uint8_t m1_encoder_pos[];
 extern uint8_t m1_pos[];
 extern uint8_t m1_des[];
 extern uint8_t m1_vel[];
@@ -70,6 +71,7 @@ extern uint8_t m1_kd[];
 extern uint8_t m1_mode[];
 extern uint8_t m1_traj_status[];
 // Motor drive 2 data (ankle)
+extern uint8_t m2_encoder_pos[];
 extern uint8_t m2_pos[];
 extern uint8_t m2_des[];
 extern uint8_t m2_vel[];

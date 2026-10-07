@@ -19,6 +19,7 @@ uint8_t exo_busy[1] = {0};
 uint8_t exo_fsm[1] = {0};
 uint8_t exo_debug[1] = {0};
 // Motor drive 1 data (knee)
+uint8_t m1_encoder_pos[4] = {0};
 uint8_t m1_pos[4] = {0};
 uint8_t m1_des[4] = {0};
 uint8_t m1_vel[4] = {0};
@@ -31,6 +32,7 @@ uint8_t m1_kd[4] = {0};
 uint8_t m1_mode[1] = {0};
 uint8_t m1_traj_status[1] = {0};
 // Motor drive 2 data (ankle)
+uint8_t m2_encoder_pos[4] = {0};
 uint8_t m2_pos[4] = {0};
 uint8_t m2_des[4] = {0};
 uint8_t m2_vel[4] = {0};
@@ -129,13 +131,6 @@ bool data_tx_arrays_init(void)
 //		frame, tx_dropped, high_water_mark, failures
 //	};
 
-	static const uint8_t* const data_sources[] = {
-		exo_busy, exo_fsm, exo_debug,
-		m1_pos, m1_des, m1_vel, m1_ic, m1_ic_des,
-		m2_pos, m2_des, m2_vel, m2_ic, m2_ic_des, m2_kp, m2_kd, m2_tau_ff, m2_mode, m2_traj_status,
-		frame, tx_dropped, high_water_mark, failures
-	};
-
 //	// Create the length key
 //	static const uint16_t length_key[] = {
 //		1, 1, 1,
@@ -144,9 +139,30 @@ bool data_tx_arrays_init(void)
 //		1, 4, 2, 4
 //	};
 
+	// Single Motor, lower data rate
+//	static const uint8_t* const data_sources[] = {
+//		exo_busy, exo_fsm, exo_debug,
+//		m1_pos, m1_des, m1_vel, m1_ic, m1_ic_des,
+//		m2_pos, m2_des, m2_vel, m2_ic, m2_ic_des, m2_kp, m2_kd, m2_tau_ff, m2_mode, m2_traj_status,
+//		frame, tx_dropped, high_water_mark, failures
+//	};
+//
+//	static const uint16_t length_key[] = {
+//		1, 1, 1,
+//		4, 4, 4, 4, 4,
+//		4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
+//		1, 4, 2, 4
+//	};
+
+	// Single Motor, lower data rate, but added the linearized encoder count
+	static const uint8_t* const data_sources[] = {
+		exo_busy, exo_fsm, exo_debug,
+		m2_encoder_pos, m2_pos, m2_des, m2_vel, m2_ic_des, m2_kp, m2_kd, m2_tau_ff, m2_mode, m2_traj_status,
+		frame, tx_dropped, high_water_mark, failures
+	};
+
 	static const uint16_t length_key[] = {
 		1, 1, 1,
-		4, 4, 4, 4, 4,
 		4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
 		1, 4, 2, 4
 	};

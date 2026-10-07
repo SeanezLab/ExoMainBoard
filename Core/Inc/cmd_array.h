@@ -59,8 +59,8 @@ typedef struct{
 	bool new_sp_cmd;
 	bool new_cont;
 	bool new_query;
-	CANRequestMode command_mode; // CAN_COMMAND or CAN_COMMAND_CHARACTERIZATION
-	CANRequestMode query_mode; // CAN_QUERY_STATE or CAN_QUERY_CHARACTERIZATION
+	CANRequestMode command_mode; // CAN_COMMAND, CAN_COMMAND_CHARACTERIZATION, or CAN_COMMAND_ENCODER
+	CANRequestMode query_mode; // CAN_QUERY_STATE, CAN_QUERY_CHARACTERIZATION, or CAN_QUERY_ENCODER
 }MotorCommand;
 
 // Vibrotactile command structure

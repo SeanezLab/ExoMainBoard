@@ -174,11 +174,11 @@ void can_tx_init(CANTxMessage* msg, uint32_t motor_id)
 	msg->tx_header.Identifier = motor_id;
 }
 
-// Commands have mode 1 or 3 and use 9 bits for kd. Limits must match the driver's settings
+// Commands have mode 1, 3, or 5 and use 9 bits for kd. Limits must match the driver's settings
 bool can_pack_tx(CANTxMessage* msg, const CANCommandData* command, CANRequestMode mode)
 {
 	if (msg->tx_header.Identifier > CAN_MOTOR_ID_MAX ||
-		(mode != CAN_COMMAND && mode != CAN_COMMAND_CHARACTERIZATION) ||
+		(mode != CAN_COMMAND && mode != CAN_COMMAND_CHARACTERIZATION && mode != CAN_COMMAND_ENCODER) ||
 		!isfinite(command->p_des) || !isfinite(command->v_des) ||
 		!isfinite(command->kp) || !isfinite(command->kd) || !isfinite(command->t_ff))
 	{
@@ -222,7 +222,7 @@ bool can_pack_tx(CANTxMessage* msg, const CANCommandData* command, CANRequestMod
 bool can_pack_query(CANTxMessage* msg, CANRequestMode mode)
 {
 	if (msg->tx_header.Identifier > CAN_MOTOR_ID_MAX ||
-		(mode != CAN_QUERY_STATE && mode != CAN_QUERY_CHARACTERIZATION))
+		(mode != CAN_QUERY_STATE && mode != CAN_QUERY_CHARACTERIZATION && mode != CAN_QUERY_ENCODER))
 	{
 		return false;
 	}
@@ -280,6 +280,27 @@ bool can_unpack_characterization(const CANRxMessage* msg, CANCharacterizationRep
 	return true;
 }
 
+bool can_unpack_abs_encoder(const CANRxMessage* msg, CANAbsEncoderReply* reply)
+{
+	if (msg->rx_header.IdType != FDCAN_STANDARD_ID || msg->rx_header.RxFrameType != FDCAN_DATA_FRAME ||
+		msg->rx_header.FDFormat != FDCAN_CLASSIC_CAN ||
+		(msg->data[0] >> CAN_MODE_SHIFT) != CAN_REPLY_ABS_ENCODER ||
+		msg->rx_header.DataLength != FDCAN_DLC_BYTES_8)
+	{
+		return false;
+	}
+	uint16_t position = ((uint16_t)msg->data[1] << 8) | msg->data[2];
+	uint32_t count = ((uint32_t)msg->data[5] << 16) | ((uint32_t)msg->data[6] << 8) | msg->data[7];
+	reply->id = msg->data[0] & CAN_MOTOR_ID_MAX;
+	reply->position = can_decode_characterization_position(position);
+	int iq_des = (msg->data[3] << 4) | (msg->data[4] >> 4);
+	reply->i_q_des = uint_to_float(iq_des, CAN_CHARACTERIZATION_I_MIN, CAN_CHARACTERIZATION_I_MAX, 12);
+	// Sign extend the 24-bit two's-complement count without implementation-defined casts.
+	reply->linearized_count = (int32_t)count;
+	if (count & 0x800000U){reply->linearized_count -= 0x1000000;}
+	return true;
+}
+
 // Preserve the main board's existing direction convention and trajectory updates.
 static void can_apply_state_reply(const CANStateReply* reply)
 {
@@ -309,7 +330,7 @@ static void can_apply_characterization_reply(const CANCharacterizationReply* rep
 {
 
 	static float last_position = 0;
-	float dt = 1.0f/5000.0f;
+	float dt = 1.0f/3003.0f;
 	float p = reply->position;
 	float v = (p - last_position) / dt;
 	last_position = p;
@@ -338,6 +359,39 @@ static void can_apply_characterization_reply(const CANCharacterizationReply* rep
 	}
 }
 
+static void can_apply_encoder_reply(const CANAbsEncoderReply* reply)
+{
+
+	static float last_position = 0;
+	float dt = 1.0f/3003.0f;
+	float p = reply->position;
+	float v = (p - last_position) / dt;
+	last_position = p;
+	float torque_desired = reply->i_q_des *KT * GR;
+	int32_t encoder_value = reply->linearized_count;
+
+	if (reply->id == 1)
+	{
+		p = -p;
+		v = -v;
+		memcpy(m1_encoder_pos, &encoder_value, sizeof(int32_t));
+		memcpy(m1_pos, &p, sizeof(float));
+		memcpy(m1_vel, &v, sizeof(float));
+		memcpy(m1_ic_des, &torque_desired, sizeof(float));
+		m1_traj.theta_d_measured = p - m1_traj.theta_current;
+		m1_traj.theta_current = p;
+	}
+	else if (reply->id == 2)
+	{
+		memcpy(m2_encoder_pos, &encoder_value, sizeof(int32_t));
+		memcpy(m2_pos, &p, sizeof(float));
+		memcpy(m2_vel, &v, sizeof(float));
+		memcpy(m2_ic_des, &torque_desired, sizeof(float));
+		m2_traj.theta_d_measured = p - m2_traj.theta_current;
+		m2_traj.theta_current = p;
+	}
+}
+
 void can_unpack_rx(const CANRxMessage* msg)
 {
 	if (msg->rx_header.IdType != FDCAN_STANDARD_ID || msg->rx_header.RxFrameType != FDCAN_DATA_FRAME ||
@@ -354,6 +408,18 @@ void can_unpack_rx(const CANRxMessage* msg)
 
 	switch (msg->data[0] >> CAN_MODE_SHIFT)
 	{
+		case CAN_REPLY_ABS_ENCODER:
+		{
+			CANAbsEncoderReply reply;
+			if (!can_unpack_abs_encoder(msg, &reply)){return;}
+			telemetry->abs_encoder_reply = reply;
+			can_apply_encoder_reply(&reply);
+			telemetry->last_reply_mode = CAN_REPLY_ABS_ENCODER;
+			telemetry->abs_encoder_count++;
+			telemetry->last_reply_ms = HAL_GetTick();
+			data_tx_history_capture();
+			break;
+		}
 		case CAN_REPLY_STATE:
 		{
 			CANStateReply reply;

@@ -50,8 +50,8 @@ void motor_cmd_init(MotorCommand* m_cmd, uint8_t motor_id)
 	m_cmd->new_sp_cmd = 1; //Start with the new command on so we can set the motor to disable on startup
 	m_cmd->new_cont = 0;
 	m_cmd->new_query = 0;
-	m_cmd->command_mode = CAN_COMMAND_CHARACTERIZATION; // CAN_COMMAND
-	m_cmd->query_mode = CAN_QUERY_CHARACTERIZATION;
+	m_cmd->command_mode = CAN_COMMAND_ENCODER; // CAN_COMMAND
+	m_cmd->query_mode = CAN_QUERY_ENCODER;
 }
 
 void vibro_cmd_init(VibroCommand* vibro_cmd)

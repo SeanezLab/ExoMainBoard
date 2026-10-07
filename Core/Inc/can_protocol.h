@@ -11,6 +11,9 @@
 #define CAN_COMMAND_BYTES 8U
 #define CAN_STATE_BYTES 7U
 #define CAN_CHARACTERIZATION_BYTES 6U
+#define CAN_ENCODER_BYTES 8U
+#define CAN_ENCODER_COUNT_MIN (-8388608)
+#define CAN_ENCODER_COUNT_MAX 8388607
 #define CAN_CHARACTERIZATION_P_STEP (3.14159265358979323846f*2.0f / 32768.0f)
 #define CAN_CHARACTERIZATION_I_MIN -40.0f
 #define CAN_CHARACTERIZATION_I_MAX 40.0f
@@ -20,12 +23,15 @@ typedef enum{
 	CAN_COMMAND = 1,
 	CAN_QUERY_CHARACTERIZATION = 2,
 	CAN_COMMAND_CHARACTERIZATION = 3,
+	CAN_QUERY_ENCODER = 4,
+	CAN_COMMAND_ENCODER = 5,
 	CAN_SPECIAL_COMMAND = 7 // Existing FF ... FC/FD/FE special commands
 }CANRequestMode;
 
 typedef enum{
 	CAN_REPLY_STATE = 0,
-	CAN_REPLY_CHARACTERIZATION = 1
+	CAN_REPLY_CHARACTERIZATION = 1,
+	CAN_REPLY_ABS_ENCODER = 2
 }CANReplyMode;
 
 typedef enum{
@@ -53,13 +59,22 @@ typedef struct{
 	float position, i_q, i_q_des; // Driver coordinates; position in rad, currents in A
 }CANCharacterizationReply;
 
+// One eight-byte frame: position:16, iq_des:12, reserved:4, signed linearized_count:24.
+typedef struct{
+	uint8_t id;
+	float position, i_q_des; // Same units/ranges and 12-bit current scale as characterization
+	int32_t linearized_count; // Sign-extended 24-bit encoder.count, before M_ZERO and wrapping
+}CANAbsEncoderReply;
+
 static inline bool can_request_length_valid(uint8_t mode, uint32_t length){
 	switch(mode){
 		case CAN_QUERY_STATE:
 		case CAN_QUERY_CHARACTERIZATION:
+		case CAN_QUERY_ENCODER:
 			return length == CAN_QUERY_BYTES;
 		case CAN_COMMAND:
 		case CAN_COMMAND_CHARACTERIZATION:
+		case CAN_COMMAND_ENCODER:
 		case CAN_SPECIAL_COMMAND:
 			return length == CAN_COMMAND_BYTES;
 		default:

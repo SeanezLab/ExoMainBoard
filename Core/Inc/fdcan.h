@@ -75,8 +75,10 @@ void can_tx_init(CANTxMessage* msg, uint32_t motor_id);
 typedef struct{
 	CANStateReply state;
 	CANCharacterizationReply characterization;
+	CANAbsEncoderReply abs_encoder_reply;
 	uint32_t state_count;
 	uint32_t characterization_count;
+	uint32_t abs_encoder_count;
 	uint32_t last_reply_ms; // HAL tick when the latest valid reply was applied
 	CANReplyMode last_reply_mode;
 }CANMotorTelemetry;
@@ -89,6 +91,7 @@ bool can_pack_query(CANTxMessage* msg, CANRequestMode mode);
 bool can_pack_special(CANTxMessage* msg, CANSpecialCommand command);
 bool can_unpack_state(const CANRxMessage* msg, CANStateReply* reply);
 bool can_unpack_characterization(const CANRxMessage* msg, CANCharacterizationReply* reply);
+bool can_unpack_abs_encoder(const CANRxMessage* msg, CANAbsEncoderReply* reply);
 void can_unpack_rx(const CANRxMessage* msg);
 
 /* USER CODE END Prototypes */
