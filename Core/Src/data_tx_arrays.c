@@ -9,6 +9,8 @@
 #include "data_tx_arrays.h"
 #include "crc.h"
 #include "usart.h"
+#include "tim.h"
+#include <math.h>
 
 // Holds the data array variable for better readability
 
@@ -123,6 +125,34 @@ bool data_tx_arrays_init(void)
 {
 	if (data_tx_packet != NULL){return true;}
 
+	// This is the Standard Bluetooth Packet
+//	static const uint8_t* const data_sources[] = {
+//		exo_busy, exo_fsm, exo_debug,
+//		m1_pos, m1_des, m1_vel, m1_ic, m1_ic_des,  m1_mode, m1_traj_status,
+//		m2_pos, m2_des, m2_vel, m2_ic, m2_ic_des, m2_mode, m2_traj_status,
+//		frame
+//	};
+//
+////	// Create the length key
+//	static const uint16_t length_key[] = {
+//		1, 1, 1,
+//		4, 4, 4, 4, 4, 1, 1,
+//		4, 4, 4, 4, 4, 1, 1,
+//		1
+//	};
+
+	// This is a higher frequency M2 Encoder Bluetooth Packet
+	static const uint8_t* const data_sources[] = {
+		m2_encoder_pos, m2_pos,
+		frame, tx_dropped, high_water_mark, failures
+	};
+
+//	// Create the length key
+	static const uint16_t length_key[] = {
+		4, 4,
+		1, 4, 2, 4
+	};
+
 	// Field order is the existing telemetry payload. Keep these tables together.
 //	static const uint8_t* const data_sources[] = {
 //		exo_busy, exo_fsm, exo_debug,
@@ -139,7 +169,7 @@ bool data_tx_arrays_init(void)
 //		1, 4, 2, 4
 //	};
 
-	// Single Motor, lower data rate
+	// M2_Tuning_Packet
 //	static const uint8_t* const data_sources[] = {
 //		exo_busy, exo_fsm, exo_debug,
 //		m1_pos, m1_des, m1_vel, m1_ic, m1_ic_des,
@@ -154,18 +184,33 @@ bool data_tx_arrays_init(void)
 //		1, 4, 2, 4
 //	};
 
-	// Single Motor, lower data rate, but added the linearized encoder count
-	static const uint8_t* const data_sources[] = {
-		exo_busy, exo_fsm, exo_debug,
-		m2_encoder_pos, m2_pos, m2_des, m2_vel, m2_ic_des, m2_kp, m2_kd, m2_tau_ff, m2_mode, m2_traj_status,
-		frame, tx_dropped, high_water_mark, failures
-	};
+	// M1_Tuning_Packet
+//	static const uint8_t* const data_sources[] = {
+//		exo_busy, exo_fsm, exo_debug,
+//		m1_pos, m1_des, m1_vel, m1_ic, m1_ic_des, m1_kp, m1_kd, m1_tau_ff, m1_mode, m1_traj_status,
+//		m2_pos, m2_des, m2_vel, m2_ic, m2_ic_des,
+//		frame, tx_dropped, high_water_mark, failures
+//	};
+//
+//	static const uint16_t length_key[] = {
+//		1, 1, 1,
+//		4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
+//		4, 4, 4, 4, 4,
+//		1, 4, 2, 4
+//	};
 
-	static const uint16_t length_key[] = {
-		1, 1, 1,
-		4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
-		1, 4, 2, 4
-	};
+	// M2_Encoder_Packet
+//	static const uint8_t* const data_sources[] = {
+//		exo_busy, exo_fsm, exo_debug,
+//		m2_encoder_pos, m2_pos, m2_des, m2_vel, m2_ic_des, m2_kp, m2_kd, m2_tau_ff, m2_mode, m2_traj_status,
+//		frame, tx_dropped, high_water_mark, failures
+//	};
+//
+//	static const uint16_t length_key[] = {
+//		1, 1, 1,
+//		4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
+//		1, 4, 2, 4
+//	};
 
 
 	// Check to ensure that the data packet is valid at compile time.
@@ -374,6 +419,46 @@ void data_tx_history_drain(void)
 	// On startup (or after an idle period), the batch we just prepared can start
 	// immediately. This also handles DMA finishing during preparation.
 	data_tx_start_batch();
+}
+
+bool schedule_sampling(void)
+{
+	static uint16_t last_sampled = 0; // Just initialize it at zero, it'll refresh after the first tick
+	uint16_t now = (uint16_t)__HAL_TIM_GET_COUNTER(&htim4);
+	uint16_t elapsed_ticks = (uint16_t)((now - last_sampled));
+	if (elapsed_ticks >= SAMPLING_PERIOD_TICKS)
+	{
+		last_sampled = now;
+		return true;
+	}
+
+	return false;
+}
+
+bool set_sampling_rate(float rate_hz)
+{
+	const uint32_t counter_hz = 1000000; // Max frequency of the clock
+
+	if (rate_hz == 0U || rate_hz > counter_hz)
+	{
+		return false;
+	}
+	uint32_t ticks_to_wait = (uint32_t)round((1 / rate_hz) * 1000000); // second->us
+	if (ticks_to_wait == 0U || ticks_to_wait > 65536U)
+	{
+		return false;
+	}
+	uint32_t irq_state = __get_PRIMASK();
+	__disable_irq();
+	HAL_TIM_Base_Stop_IT(&htim4);
+    __HAL_TIM_SET_AUTORELOAD(&htim4, ticks_to_wait - 1U);
+    __HAL_TIM_SET_COUNTER(&htim4, 0U);
+    HAL_TIM_GenerateEvent(&htim4, TIM_EVENTSOURCE_UPDATE);
+    __HAL_TIM_CLEAR_FLAG(&htim4, TIM_FLAG_UPDATE);
+    HAL_NVIC_ClearPendingIRQ(TIM4_IRQn);
+    HAL_StatusTypeDef result = HAL_TIM_Base_Start_IT(&htim4);
+	__set_PRIMASK(irq_state);
+	return result == HAL_OK;
 }
 
 

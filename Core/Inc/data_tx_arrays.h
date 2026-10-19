@@ -18,6 +18,10 @@ extern "C" {
 
 #define DATA_TX_HISTORY_CAPACITY 256U
 #define DATA_TX_BATCH_CAPACITY 32U // Samples per buffer; two buffers alternate on UART
+#define DATA_TX_SENDING_RATE 120.0F // Number of samples to send hz (120 for BT tuning, 63 for standrd bt, 3003 for usb)
+#define SAMPLING_CLOCK_PERIOD 10.0F // Number of microseconds per timer tick.
+#define SAMPLING_PERIOD_TICKS (((1/DATA_TX_SENDING_RATE) * 1000000)/SAMPLING_CLOCK_PERIOD)
+
 
 // Layout arrays and source data must outlive the packet. Allocate once at startup.
 typedef struct{
@@ -49,6 +53,8 @@ TxPacket* tx_packet_init(uint16_t field_count, const uint16_t* length_key,
 bool data_tx_arrays_init(void); // Initialize the telemetry packet and its history before CAN starts
 void data_tx_history_capture(void); // Save the current arrays after a valid CAN reply
 void data_tx_history_drain(void); // Main-loop only: submit ready data and prepare one spare batch
+bool schedule_sampling(void); // Determines whether enough time has passed to pull a new sample.
+bool set_sampling_rate(float rate_hz);
 
 // Holds the data array variable for better readability
 

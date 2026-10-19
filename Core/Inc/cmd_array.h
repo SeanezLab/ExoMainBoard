@@ -27,14 +27,14 @@ extern "C" {
 
 // Motor 1 control  constants (Do not change unless you've validated the tuning!)
 #define DES_M1_V 0.0f
-#define DES_M1_KP 240.0f
-#define DES_M1_KD 5.0f
+#define DES_M1_KP 2000.0f
+#define DES_M1_KD 1.0f
 #define DES_M1_TFF 0.0f
 
 // Motor 2 control  constants (Do not change unless you've validated the tuning!)
 #define DES_M2_V 0.0f
-#define DES_M2_KP 500.0f
-#define DES_M2_KD 1.7f
+#define DES_M2_KP 2000.0f
+#define DES_M2_KD 1.0f
 #define DES_M2_TFF 0.0f
 
 

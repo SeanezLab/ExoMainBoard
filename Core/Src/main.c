@@ -153,6 +153,7 @@ int main(void)
   MX_I2C2_Init();
   MX_TIM6_Init();
   MX_TIM7_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
 
@@ -226,9 +227,14 @@ int main(void)
   motor_trajectory_init(&m2_traj, 2);
   vibro_cmd_init(&vibro_cmd);
 
-  // Lastly, turn on our event loops
-  HAL_TIM_Base_Start_IT(&htim6);
-  HAL_TIM_Base_Start_IT(&htim7);
+  // Lastly, turn on our event loops and set our sampling rate
+  if (!set_sampling_rate(DATA_TX_SENDING_RATE))
+  {
+	  Error_Handler();
+  }
+  ;
+  HAL_TIM_Base_Start_IT(&htim6); // Transmission loop
+  HAL_TIM_Base_Start_IT(&htim7); // Motor Command loop
 
   /* USER CODE END 2 */
 

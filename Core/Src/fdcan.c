@@ -201,7 +201,7 @@ bool can_pack_tx(CANTxMessage* msg, const CANCommandData* command, CANRequestMod
 	float tau_compressed = uint_to_float(fields.torque, I_MIN*KT*GR, I_MAX*KT*GR, 12);
 	if (msg->id == 1)
 	{
-		pos_compressed *= 1;
+		pos_compressed *= -1;
 		memcpy(m1_des, &pos_compressed, sizeof(float)); //Apply the sign flip for M1
 		memcpy(m1_kp, &kp_compressed, sizeof(float));
 		memcpy(m1_kd, &kd_compressed, sizeof(float));
@@ -330,7 +330,7 @@ static void can_apply_characterization_reply(const CANCharacterizationReply* rep
 {
 
 	static float last_position = 0;
-	float dt = 1.0f/3003.0f;
+	float dt = 1.0f/DATA_TX_SENDING_RATE;
 	float p = reply->position;
 	float v = (p - last_position) / dt;
 	last_position = p;
@@ -417,7 +417,6 @@ void can_unpack_rx(const CANRxMessage* msg)
 			telemetry->last_reply_mode = CAN_REPLY_ABS_ENCODER;
 			telemetry->abs_encoder_count++;
 			telemetry->last_reply_ms = HAL_GetTick();
-			data_tx_history_capture();
 			break;
 		}
 		case CAN_REPLY_STATE:
@@ -429,7 +428,6 @@ void can_unpack_rx(const CANRxMessage* msg)
 			telemetry->last_reply_mode = CAN_REPLY_STATE;
 			telemetry->state_count++;
 			telemetry->last_reply_ms = HAL_GetTick();
-			data_tx_history_capture();
 			break;
 		}
 		case CAN_REPLY_CHARACTERIZATION:
@@ -441,7 +439,6 @@ void can_unpack_rx(const CANRxMessage* msg)
 			telemetry->last_reply_mode = CAN_REPLY_CHARACTERIZATION;
 			telemetry->characterization_count++;
 			telemetry->last_reply_ms = HAL_GetTick();
-			data_tx_history_capture();
 			break;
 		}
 		default:
