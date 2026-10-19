@@ -10,10 +10,14 @@
 #include "tim.h"
 #include "cmd_array.h"
 #include "data_tx_arrays.h"
+#include "structs.h"
 #include <string.h>
 #include <math.h>
 
+#define DT 0.00033333f
+
 float t_ff;
+static void abort_logchirp(MotorTrajectory* m_traj, MotorCommand* m_cmd, ChirpAbortReason reason);
 
 void motor_trajectory_init(MotorTrajectory* m_traj, uint8_t motor_id)
 {
@@ -37,6 +41,13 @@ void motor_trajectory_init(MotorTrajectory* m_traj, uint8_t motor_id)
 	m_traj->cmd_rdy = 0;
 	m_traj->new_traj_req = 0;
 	m_traj->traj_cmplt = 0;
+	m_traj->chirp_start_freq = 0.5f;
+	m_traj->chirp_end_freq = 50.0f;
+	m_traj->chirp_duration = 60.0f;
+	m_traj->chirp_amplitude = 0.0f; // No excitation until explicitly commanded
+	m_traj->chirp_ramp_time = 1.0f;
+	m_traj->chirp_bias = 0.0f;
+	memset(&m_traj->chirp_traj, 0, sizeof(m_traj->chirp_traj));
 }
 
 void advance_traj(MotorTrajectory* m_traj, MotorCommand* m_cmd)
@@ -51,7 +62,10 @@ void advance_traj(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 	}
 
 	// Update the timer
-	if (m_traj->tic == m_traj->t_mult)
+	// Chirps and their abort checks run every motor-loop service, independently
+	// of the decimation used by the other position trajectories.
+	if (m_traj->traj_mode == TRAJ_LOG_CHIRP || m_traj->traj_mode == TRAJ_POSITION_LOG_CHIRP ||
+		m_traj->tic == m_traj->t_mult)
 	{
 		generate_traj_cmd(m_traj, m_cmd);
 		m_traj->tic = 0;
@@ -97,7 +111,7 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		if (m_traj->new_traj_req == true)
 		{
 			m_traj->new_traj_req = false;
-			float dt = 0.005f * m_traj->t_mult;
+			float dt = DT * m_traj->t_mult;
 			minjerk_start(&(m_traj->jerk_traj), m_cmd->des_pos, m_traj->theta_target, m_traj->time_to_targ, dt);
 			m_traj->traj_cmplt = m_traj->jerk_traj.active;
 		}
@@ -109,16 +123,6 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		else if (m_traj->jerk_traj.active == false)
 		{
 			m_traj->traj_cmplt = m_traj->jerk_traj.active;
-		}
-
-		if (m_traj->motor_id == 1)
-		{
-			float theta_mod = (m_traj->theta) * -1;
-			memcpy(m1_des, &theta_mod, sizeof(float));
-		}
-		else if (m_traj->motor_id == 2)
-		{
-			memcpy(m2_des, &(m_traj->theta), sizeof(float));
 		}
 
 		t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
@@ -133,7 +137,7 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		if (m_traj->new_traj_req == true)
 		{
 			m_traj->new_traj_req = false;
-			float dt = 0.005f * m_traj->t_mult;
+			float dt = DT * m_traj->t_mult;
 			constvel_start(&(m_traj->const_vel_traj), m_cmd->des_pos, m_traj->theta_target, m_traj->time_to_targ, dt);
 			m_traj->traj_cmplt = m_traj->jerk_traj.active;
 		}
@@ -147,16 +151,6 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 			m_traj->traj_cmplt = m_traj->const_vel_traj.active;
 		}
 
-		if (m_traj->motor_id == 1)
-		{
-			float theta_mod = (m_traj->theta) * -1;
-			memcpy(m1_des, &theta_mod, sizeof(float));
-		}
-		else if (m_traj->motor_id == 2)
-		{
-			memcpy(m2_des, &(m_traj->theta), sizeof(float));
-		}
-
 		t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
 		m_cmd->des_pos = m_traj->theta;
 		m_cmd->des_v = m_traj->theta_d;
@@ -165,11 +159,110 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		m_cmd->new_cont = 1;
 		return;
 
+	case TRAJ_LOG_CHIRP: // Torque disturbance around a fixed position reference
+	case TRAJ_POSITION_LOG_CHIRP: // Position excitation around the requested setpoint
+	{
+		LogChirpTraj* tr = &m_traj->chirp_traj;
+		bool position_chirp = m_traj->traj_mode == TRAJ_POSITION_LOG_CHIRP;
+		float position_sign = (m_traj->motor_id == 1) ? -1.0f : 1.0f;
+		if (m_cmd->des_mode != 1 || m_cmd->new_sp_cmd)
+		{
+			cancel_logchirp(m_traj, m_cmd);
+			return;
+		}
+		if (m_traj->new_traj_req == true)
+		{
+			m_traj->new_traj_req = false;
+			if (!isfinite(m_cmd->des_pos) ||
+				!logchirp_start(tr, m_traj->chirp_start_freq, m_traj->chirp_end_freq,
+					m_traj->chirp_duration, m_traj->chirp_amplitude,
+					m_traj->chirp_ramp_time, m_traj->chirp_bias, motor_loop_period_seconds(), m_traj->traj_mode))
+			{
+				abort_logchirp(m_traj, m_cmd, CHIRP_ABORT_PARAMETERS);
+				return;
+			}
+			tr->hold_position = position_chirp ? position_sign * tr->bias : m_cmd->des_pos;
+			tr->start_tick = motor_loop_ticks;
+			m_traj->jerk_traj.active = false;
+			m_traj->const_vel_traj.active = false;
+			m_traj->tic = 0;
+			m_cmd->command_mode = CAN_COMMAND_CHARACTERIZATION;
+			m_cmd->query_mode = CAN_QUERY_CHARACTERIZATION;
+		}
+
+		// Snapshot the latest driver states together. They are in driver coordinates,
+		// unlike m1_pos, whose sign is reversed for host telemetry.
+		volatile CANMotorTelemetry* telemetry;
+		if (m_traj->motor_id == 1)
+		{
+			telemetry = &m1_can_telemetry;
+		}
+		else if (m_traj->motor_id == 2)
+		{
+			telemetry = &m2_can_telemetry;
+		}
+		else
+		{
+			abort_logchirp(m_traj, m_cmd, CHIRP_ABORT_PARAMETERS);
+			return;
+		}
+		uint32_t irq_state = __get_PRIMASK();
+		__disable_irq();
+		CANMotorTelemetry latest = *telemetry;
+		__set_PRIMASK(irq_state);
+		CANCharacterizationReply* sample = &latest.characterization;
+		if (latest.characterization_count == 0 || latest.last_reply_mode != CAN_REPLY_CHARACTERIZATION ||
+			(uint32_t)(HAL_GetTick() - latest.last_reply_ms) >= CHIRP_FEEDBACK_TIMEOUT_MS ||
+			!isfinite(sample->position) || !isfinite(sample->i_q) || !isfinite(sample->i_q_des))
+		{
+			abort_logchirp(m_traj, m_cmd, CHIRP_ABORT_FEEDBACK);
+			return;
+		}
+//		if (fabsf(sample->position - tr->hold_position) >= CHIRP_POSITION_LIMIT_RAD ||
+//			sample->position <= -32768.0f * CAN_CHARACTERIZATION_P_STEP ||
+//			sample->position >= 32767.0f * CAN_CHARACTERIZATION_P_STEP)
+//		{
+//			abort_logchirp(m_traj, m_cmd, CHIRP_ABORT_POSITION);
+//			// Saturated +/-pi telemetry cannot support a reliable excursion check.
+//			return;
+//		}
+		// Check both measured and total commanded current, not just the chirp amplitude.
+		if (fabsf(sample->i_q) * KT * (float)GR >= CHIRP_TORQUE_LIMIT_NM ||
+			fabsf(sample->i_q_des) * KT * (float)GR >= CHIRP_TORQUE_LIMIT_NM)
+		{
+			abort_logchirp(m_traj, m_cmd, CHIRP_ABORT_TORQUE);
+			return;
+		}
+
+		uint32_t elapsed_ticks = motor_loop_ticks - tr->start_tick;
+		float output;
+		logchirp_step(tr, elapsed_ticks, &output);
+		if (tr->abort_reason != CHIRP_ABORT_NONE || !isfinite(output))
+		{
+			abort_logchirp(m_traj, m_cmd, CHIRP_ABORT_PARAMETERS);
+			return;
+		}
+		// Match the host position convention, including motor 1's reversed direction.
+		m_traj->theta = position_chirp ? position_sign * output : tr->hold_position;
+		m_traj->theta_d = 0.0f;
+		m_traj->theta_dd = 0.0f;
+		m_traj->traj_cmplt = tr->active; // Existing telemetry convention: true while active
+		m_cmd->des_pos = m_traj->theta;
+		// Excite only the position reference when probing the outer loop.
+		m_cmd->des_tff = position_chirp ? 0.0f : output;
+		m_cmd->des_v = 0.0f;
+		m_cmd->new_pos = 1;
+		m_cmd->new_cont = 1;
+		float position_tx = (m_traj->motor_id == 1) ? -tr->hold_position : tr->hold_position;
+
+	}
 	}
 }
 
 void reset_target_pos(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 {
+	// Re-enabling or changing FSM mode must not restart an old sweep.
+	cancel_logchirp(m_traj, m_cmd);
 	// Sets the target position of the motor to the current position. Used when transitioning
 	// from a disabled->enabled motor state, or from the transparent->command state for the exo
 	m_traj->new_traj_req = true;
@@ -189,6 +282,152 @@ void reset_target_pos(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		m_cmd->des_pos = latest_pos;
 		m_traj->theta_target =  latest_pos;
 	}
+}
+
+bool logchirp_parameters_valid(float start_freq, float end_freq, float duration,
+	float amplitude, float ramp_time, float bias, float dt, uint8_t traj_mode)
+{
+	// Validate parameters without creating or changing any trajectory state.
+	if (!isfinite(start_freq) || !isfinite(end_freq) || !isfinite(duration) ||
+		!isfinite(amplitude) || !isfinite(ramp_time) || !isfinite(bias) || !isfinite(dt) ||
+		dt <= 0.0f || start_freq <= 0.0f || end_freq <= 0.0f || duration < dt ||
+		amplitude < 0.0f || ramp_time < 0.0f || ramp_time > duration * 0.5f ||
+		fmaxf(start_freq, end_freq) * dt >= 0.5f || duration >= (double)UINT32_MAX * dt)
+	{
+		return false;
+	}
+	if (traj_mode == TRAJ_POSITION_LOG_CHIRP)
+	{
+		// Reject sweeps that would be clipped by the CAN position command range.
+		return bias - 0.5f * amplitude >= P_MIN && bias + 0.5f * amplitude <= P_MAX;
+	}
+	return traj_mode == TRAJ_LOG_CHIRP && fabsf(bias) + amplitude < CHIRP_TORQUE_LIMIT_NM;
+}
+
+bool logchirp_start(LogChirpTraj* tr, float start_freq, float end_freq, float duration,
+	float amplitude, float ramp_time, float bias, float dt, uint8_t traj_mode)
+{
+	if (!logchirp_parameters_valid(start_freq, end_freq, duration, amplitude, ramp_time, bias, dt, traj_mode))
+	{
+		return false;
+	}
+	memset(tr, 0, sizeof(*tr));
+	tr->start_freq = start_freq;
+	tr->end_freq = end_freq;
+	tr->T = duration;
+	tr->dt = dt;
+	tr->amplitude = (traj_mode == TRAJ_POSITION_LOG_CHIRP) ? 0.5f * amplitude : amplitude;
+	tr->bias = bias;
+	tr->ramp_time = ramp_time;
+	tr->log_rate = log((double)end_freq / start_freq) / duration;
+	tr->frequency_state = start_freq;
+	tr->frequency_multiplier = exp(tr->log_rate * dt);
+	const double two_pi = 6.283185307179586;
+	tr->phase_per_hz = two_pi * dt;
+	if (tr->log_rate != 0.0)
+	{
+		// Exact integral over one timer period, per Hz at the start of that period.
+		tr->phase_per_hz = two_pi * expm1(tr->log_rate * dt) / tr->log_rate;
+	}
+	tr->frequency = start_freq;
+	tr->output = bias;
+	tr->active = true;
+	return true;
+}
+
+bool logchirp_step(LogChirpTraj* tr, uint32_t elapsed_ticks, float* output)
+{
+	if (elapsed_ticks < tr->elapsed_ticks)
+	{
+		tr->active = false;
+		tr->abort_reason = CHIRP_ABORT_PARAMETERS;
+	}
+	if (tr->abort_reason != CHIRP_ABORT_NONE)
+	{
+		tr->perturbation = 0.0f;
+		tr->output = 0.0f;
+		if (output){*output = tr->output;}
+		return false;
+	}
+	uint32_t ticks_to_advance = elapsed_ticks - tr->elapsed_ticks;
+	tr->elapsed_ticks = elapsed_ticks;
+	double elapsed_seconds = (double)elapsed_ticks * tr->dt;
+	tr->t = fminf((float)elapsed_seconds, tr->T);
+	if (!tr->active || elapsed_seconds >= tr->T)
+	{
+		tr->active = false;
+		tr->frequency = tr->end_freq;
+		tr->perturbation = 0.0f;
+		tr->output = tr->bias; // Normal completion keeps the holding bias/setpoint
+		if (output){*output = tr->output;}
+		return false;
+	}
+
+	const double two_pi = 6.283185307179586;
+	if (ticks_to_advance == 1)
+	{
+		// Integrate this interval using its starting frequency, then advance frequency.
+		tr->phase += tr->frequency_state * tr->phase_per_hz;
+		tr->frequency_state *= tr->frequency_multiplier;
+		// Frequencies are below Nyquist, so one tick adds less than pi radians.
+		if (tr->phase >= two_pi){tr->phase -= two_pi;}
+	}
+	else if (ticks_to_advance > 1)
+	{
+		// A delayed call must not stretch the sweep. Resynchronize directly instead
+		// of looping over missed samples. Expensive math is only used on this path.
+		if (tr->log_rate == 0.0)
+		{
+			tr->phase = two_pi * tr->start_freq * elapsed_seconds;
+			tr->frequency_state = tr->start_freq;
+		}
+		else
+		{
+			tr->phase = two_pi * tr->start_freq * expm1(tr->log_rate * elapsed_seconds) / tr->log_rate;
+			tr->frequency_state = tr->start_freq * exp(tr->log_rate * elapsed_seconds);
+		}
+		tr->phase = fmod(tr->phase, two_pi);
+	}
+	// Zero elapsed ticks leave the waveform unchanged, including on its first call.
+	tr->frequency = (float)tr->frequency_state;
+	float envelope = 1.0f;
+	float edge_time = fminf(tr->t, tr->T - tr->t);
+	if (tr->ramp_time > 0.0f && edge_time < tr->ramp_time)
+	{
+		envelope = 0.5f - 0.5f * cosf(3.1415926536f * edge_time / tr->ramp_time);
+	}
+	tr->perturbation = tr->amplitude * envelope * sinf((float)tr->phase);
+	tr->output = tr->bias + tr->perturbation;
+	if (output){*output = tr->output;}
+	return true;
+}
+
+void cancel_logchirp(MotorTrajectory* m_traj, MotorCommand* m_cmd)
+{
+	if (m_traj->traj_mode != TRAJ_LOG_CHIRP && m_traj->traj_mode != TRAJ_POSITION_LOG_CHIRP &&
+		!m_traj->chirp_traj.active){return;}
+	m_traj->chirp_traj.active = false;
+	m_traj->chirp_traj.perturbation = 0.0f;
+	m_traj->chirp_traj.output = 0.0f;
+	m_traj->traj_mode = 0;
+	m_traj->new_traj_req = false;
+	m_traj->traj_cmplt = false;
+	m_cmd->des_tff = 0.0f;
+	m_cmd->des_v = 0.0f;
+	m_cmd->new_cont = 1;
+}
+
+static void abort_logchirp(MotorTrajectory* m_traj, MotorCommand* m_cmd, ChirpAbortReason reason)
+{
+	cancel_logchirp(m_traj, m_cmd);
+	m_traj->chirp_traj.abort_reason = reason;
+	// Disabling takes precedence over control packets and is retried by handle_m_cmd.
+	// Explicit host re-enable and a new chirp command are required to run again.
+	m_cmd->last_mode = m_cmd->des_mode;
+	m_cmd->des_mode = 0;
+	m_cmd->new_sp_cmd = 1;
+	m_cmd->new_pos = 0;
+	m_cmd->new_cont = 0;
 }
 
 void constvel_start(ConstVel* tr, float theta0, float thetaf, float T, float dt)

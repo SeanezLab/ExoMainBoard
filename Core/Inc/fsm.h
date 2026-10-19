@@ -44,6 +44,7 @@ void enter_command_state(void);
 void enter_transparency_state(void);
 void enter_config_state(void);
 void process_user_input(FSMStruct * fsmstate);
+void run_motor_loop(void);
 
 #ifdef __cplusplus
 }

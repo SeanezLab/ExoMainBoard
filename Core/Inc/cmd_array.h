@@ -27,14 +27,14 @@ extern "C" {
 
 // Motor 1 control  constants (Do not change unless you've validated the tuning!)
 #define DES_M1_V 0.0f
-#define DES_M1_KP 240.0f
-#define DES_M1_KD 12.0f
+#define DES_M1_KP 2000.0f
+#define DES_M1_KD 1.0f
 #define DES_M1_TFF 0.0f
 
 // Motor 2 control  constants (Do not change unless you've validated the tuning!)
 #define DES_M2_V 0.0f
-#define DES_M2_KP 240.0f
-#define DES_M2_KD 18.0f
+#define DES_M2_KP 2000.0f
+#define DES_M2_KD 1.0f
 #define DES_M2_TFF 0.0f
 
 
@@ -57,9 +57,10 @@ typedef struct{
 	float svd_tff;
 	bool new_pos;
 	bool new_sp_cmd;
-	bool rdy_to_snd;
 	bool new_cont;
 	bool new_query;
+	CANRequestMode command_mode; // CAN_COMMAND, CAN_COMMAND_CHARACTERIZATION, or CAN_COMMAND_ENCODER
+	CANRequestMode query_mode; // CAN_QUERY_STATE, CAN_QUERY_CHARACTERIZATION, or CAN_QUERY_ENCODER
 }MotorCommand;
 
 // Vibrotactile command structure
