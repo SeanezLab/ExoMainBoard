@@ -11,6 +11,8 @@
 
 
 #include "cmd_array.h"
+#include <math.h>
+#include <string.h>
 
 // Exoskeleton desired state/mode
 float des_mode = 0;
@@ -45,6 +47,10 @@ void motor_cmd_init(MotorCommand* m_cmd, uint8_t motor_id)
 		m_cmd->svd_kd = DEF_KD;
 	}
 	m_cmd->des_tff = 0;
+    m_cmd->cogging_gain = 0.0f;
+    m_cmd->cogging_offset_motor_deg = 0.0f;
+    m_cmd->cogging_packet_valid = false;
+    memset(m_cmd->cogging_last_packet, 0, sizeof(m_cmd->cogging_last_packet));
 	m_cmd->svd_tff = 0;
 	m_cmd->new_pos = 0; //Start with the new position flag off
 	m_cmd->new_sp_cmd = 1; //Start with the new command on so we can set the motor to disable on startup
@@ -77,6 +83,48 @@ static bool send_m_can(CANTxMessage* m_tx)
 	return true;
 }
 
+// Send only changed gain/offset/direction blend, or an explicit user resend.
+// There is no periodic refresh; the driver latches the last valid settings.
+static bool send_cogging_config(MotorCommand *m_cmd, CANTxMessage *m_tx) {
+    if (m_cmd->motor_id != 2)
+    {
+    	return true; // For now, skip the remainder of the command if its not M2
+    }
+    float gain = m_cmd->cogging_gain;
+    float blend = m_cmd->des_v / (0.2f * 3.14159265358979323846f / 180.0f); // Calculate the map blend factor
+    if (!isfinite(blend))
+    {
+    	return false;
+    }
+
+    blend = fminf(1.0f, fmaxf(-1.0f, blend)); // Clamp the blend to entirely the positive or negative map.
+
+    // If no gain, no need for blending maps
+    if (gain == 0.0f)
+    {
+    	blend = 0.0f;
+    }
+    // Create a packet and stuff it, return on failure
+    uint8_t packet[8];
+    if (!can_pack_cogging(packet, gain, blend, m_cmd->cogging_offset_motor_deg))
+    {
+    	return false;
+    }
+    // Checks if there has been a change since last command
+    bool changed = !m_cmd->cogging_packet_valid ||
+                   memcmp(packet, m_cmd->cogging_last_packet, sizeof(packet)) != 0;
+    if (!changed)
+    {
+    	return true; // return true, nothing needed to be done
+    }
+    memcpy(m_tx->data, packet, sizeof(packet));
+    m_tx->tx_header.DataLength = FDCAN_DLC_BYTES_8;
+    if (!send_m_can(m_tx)) { return false; }
+    memcpy(m_cmd->cogging_last_packet, packet, sizeof(packet));
+    m_cmd->cogging_packet_valid = true; // set the flag that a valid command was sent.
+    return true;
+}
+
 void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx)
 {
 	// Special commands take precedence
@@ -96,10 +144,13 @@ void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx)
 			return;
 		}
 		m_cmd->new_sp_cmd = 0;
+        return;
 
 	}
-	// A new position or a new control scheme is given
-	else if (m_cmd->new_pos == 1 || m_cmd->new_cont == 1)
+	//
+    if (!send_cogging_config(m_cmd, m_tx)) { return; }
+    // A new position or a new control scheme is given
+    if (m_cmd->new_pos == 1 || m_cmd->new_cont == 1)
 	{
 		CANCommandData command = {
 			.p_des = m_cmd->des_pos,
