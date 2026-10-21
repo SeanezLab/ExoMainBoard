@@ -29,7 +29,9 @@ void motor_trajectory_init(MotorTrajectory* m_traj, uint8_t motor_id)
 	m_traj->des_freq = 1;
 	m_traj->theta_target = 0;
 	m_traj->time_to_targ = 10; // In sec
-	m_traj->joint_inertia_ff;
+	m_traj->ramp_time = 0;
+	m_traj->travel_vel = 10; // in deg/sec
+	m_traj->joint_inertia_ff = 0;
 	m_traj->gravity_ff = 0;
 	m_traj->dyn_frct_ff = 0;
 	m_traj->stat_frct_ff = 1.5;
@@ -48,6 +50,7 @@ void motor_trajectory_init(MotorTrajectory* m_traj, uint8_t motor_id)
 	m_traj->chirp_ramp_time = 1.0f;
 	m_traj->chirp_bias = 0.0f;
 	memset(&m_traj->chirp_traj, 0, sizeof(m_traj->chirp_traj));
+	memset(&m_traj->trap_traj, 0, sizeof(m_traj->trap_traj));
 }
 
 void advance_traj(MotorTrajectory* m_traj, MotorCommand* m_cmd)
@@ -158,6 +161,31 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		m_cmd->new_pos = 1;
 		m_cmd->new_cont = 1;
 		return;
+
+	case TRAPEZOIDAL_TRAJ:
+		if (m_traj->new_traj_req == true)
+		{
+			m_traj->new_traj_req = false;
+			float dt = DT * m_traj->t_mult;
+			trapvel_start(&(m_traj->trap_traj), m_cmd->des_pos, m_traj->theta_target, m_traj->time_to_targ, m_traj->ramp_time, m_traj->travel_vel, dt);
+			m_traj->traj_cmplt = m_traj->jerk_traj.active;
+		}
+		else if (m_traj->trap_traj.active == true)
+		{
+			constvel_step(&(m_traj->trap_traj), &(m_traj->theta), &(m_traj->theta_d), &(m_traj->theta_dd));
+			m_traj->traj_cmplt = m_traj->trap_traj.active;
+		}
+		else if (m_traj->trap_traj.active == false)
+		{
+			m_traj->traj_cmplt = m_traj->trap_traj.active;
+		}
+
+		t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
+		m_cmd->des_pos = m_traj->theta;
+		m_cmd->des_v = m_traj->theta_d;
+		m_cmd->des_tff = t_ff;
+		m_cmd->new_pos = 1;
+		m_cmd->new_cont = 1;
 
 	case TRAJ_LOG_CHIRP: // Torque disturbance around a fixed position reference
 	case TRAJ_POSITION_LOG_CHIRP: // Position excitation around the requested setpoint
@@ -429,6 +457,108 @@ static void abort_logchirp(MotorTrajectory* m_traj, MotorCommand* m_cmd, ChirpAb
 	m_cmd->new_pos = 0;
 	m_cmd->new_cont = 0;
 }
+
+void trapvel_start(TrapVel* tr, float theta0, float thetaf, float T, float ramp_time, float velocity, float dt)
+{
+	if (T <= ramp_time * 2.0f)
+	{
+		ramp_time = T / 2; // truncate the ramp time if they are larger than the trajectory length
+	}
+
+	tr->theta0 = theta0;
+	tr->thetaf = thetaf;
+	tr->T = (T > 1e-6F) ? T : 1e-6F;
+	tr->t = 0.0F;
+	tr->dt = dt;
+	tr->ramp_t = (ramp_time > 1e-6f) ? ramp_time : 1e-6f;
+	tr->vel = velocity;
+	tr->active = true;
+
+
+}
+
+bool trapvel_step(TrapVel* tr, float* theta, float* theta_dot, float* theta_ddot)
+{
+	if (tr->active == false)
+	// Trajectory is finished hold the final
+	{
+		if (theta) *theta = tr->thetaf;
+		if (theta_dot) *theta_dot = 0.0f;
+		if (theta_ddot) *theta_ddot = 0.0f;
+		return false;
+	}
+	 // Protect against divide-by-zero or invalid trajectory time
+	if (tr->T <= 0.0f)
+	{
+		if (theta)      *theta      = tr->thetaf;
+		if (theta_dot)  *theta_dot  = 0.0f;
+		if (theta_ddot) *theta_ddot = 0.0f;
+
+		tr->active = false;
+		return false;
+	}
+
+	// Clamp time to [0, T]
+	float t = tr->t;
+	if (t >= tr->T) t = tr->T;
+	if (t <= 0.0f)  t = 0.0f;
+
+	const float T = tr->T;
+	const float ta = tr->ramp_t;
+	const float tb = T- tr->ramp_t;
+	float a_accel = (tr->vel - 0) / tr->ramp_t;
+	float b_accel = (0 - tr->vel) / tr->ramp_t;
+	float p;
+	float v;
+	float a;
+
+	//If the time is T minus the ramp, change the target velocity to 0
+	if (t >= 0 && t < ta)
+	{
+		p = 0.5f * a_accel * t * t + tr->theta0;
+		v = a_accel * t;
+		a = a_accel;
+	}
+	else if (t >= ta && t < tb)
+	{
+		p = tr->theta0 + tr->vel * (t - 0.5 * tr->ramp_t);
+		v = tr->vel;
+		a = 0.0f;
+	}
+	else
+	{
+		const float remaining = T - t;
+		p = tr->thetaf - 0.5f * a_accel * remaining * remaining;
+		v = a_accel * remaining;
+		a = b_accel;
+	}
+
+
+	// Update the values of theta
+	if (theta) *theta = p;
+	if (theta_dot) *theta_dot = v;
+	if (theta_ddot) *theta_ddot = a;
+
+	// Advance time
+	tr->t += tr->dt;
+
+	// Finish?
+	if (tr->t >= tr->T + 0.5f * tr->dt)
+	{
+		tr->active = false;
+
+		// Hard-set final for cleanliness
+		if (theta)      *theta      = tr->thetaf;
+		if (theta_dot)  *theta_dot  = 0.0f;
+		if (theta_ddot) *theta_ddot = 0.0f;
+
+		return false;
+	}
+
+	return true;
+
+}
+
 
 void constvel_start(ConstVel* tr, float theta0, float thetaf, float T, float dt)
 {

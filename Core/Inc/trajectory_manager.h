@@ -17,11 +17,24 @@ extern "C" {
 #include "cmd_array.h"
 
 #define TRAJ_LEN 5000
-#define TRAJ_LOG_CHIRP 4U
-#define TRAJ_POSITION_LOG_CHIRP 5U
+#define TRAPEZOIDAL_TRAJ 4U
+#define TRAJ_LOG_CHIRP 5U
+#define TRAJ_POSITION_LOG_CHIRP 6U
 #define CHIRP_TORQUE_LIMIT_NM 20.0f
 #define CHIRP_POSITION_LIMIT_RAD 0.7853981634f // 45 degrees from the held setpoint
 #define CHIRP_FEEDBACK_TIMEOUT_MS 100U
+
+
+typedef struct{
+	float theta0;//in radians
+	float thetaf;//in radians
+	float T; //In Seconds
+	float t; //current time (locally), in seconds
+	float dt; //timestep, in seconds
+	float vel; //Coasting velocity
+	float ramp_t; //Ramp time, both accel and deccel
+	bool active;
+} TrapVel;
 
 typedef struct{
 	float theta0;//in radians
@@ -31,7 +44,6 @@ typedef struct{
 	float dt; //timestep, in seconds
 	bool active;
 } MinJerkTraj;
-
 
 typedef struct{
 	float theta0;//in radians
@@ -78,6 +90,8 @@ typedef struct{
 	float theta_current;
 	float theta_d_measured;
 	float time_to_targ; // In sec;
+	float ramp_time; // in sec, for trapezoidal velocity
+	float travel_vel; // in deg/sec
 	float joint_inertia_ff;
 	float gravity_ff;
 	float dyn_frct_ff; //torque(nm)/(rad/s)
@@ -92,6 +106,7 @@ typedef struct{
 	bool traj_cmplt;
 	MinJerkTraj jerk_traj;
 	ConstVel const_vel_traj;
+	TrapVel trap_traj;
 	float chirp_start_freq, chirp_end_freq;
 	// Torque: peak amplitude/bias in Nm. Position: peak-to-peak amplitude/setpoint in radians.
 	float chirp_duration, chirp_amplitude, chirp_ramp_time, chirp_bias;
@@ -112,6 +127,8 @@ void minjerk_start(MinJerkTraj* tr, float theta0, float thetaf, float T, float d
 bool minjerk_step(MinJerkTraj* tr, float* theta, float* theta_dot, float* theta_ddot);
 void constvel_start(ConstVel* tr, float theta0, float thetaf, float T, float dt);
 bool constvel_step(ConstVel* tr, float* theta, float* theta_dot, float* theta_ddot);
+void trapvel_start(TrapVel* tr, float theta0, float thetaf, float T, float ramp_time, float velocity, float dt);
+bool trapvel_step(TrapVel* tr, float* theta, float* theta_dot, float* theta_ddot);
 float smooth_sign(float v, float v0);
 float friction_ff(float v_des, float b_visc, float tau_breakaway, float v0);
 
