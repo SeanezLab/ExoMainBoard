@@ -127,7 +127,7 @@ void minjerk_start(MinJerkTraj* tr, float theta0, float thetaf, float T, float d
 bool minjerk_step(MinJerkTraj* tr, float* theta, float* theta_dot, float* theta_ddot);
 void constvel_start(ConstVel* tr, float theta0, float thetaf, float T, float dt);
 bool constvel_step(ConstVel* tr, float* theta, float* theta_dot, float* theta_ddot);
-void trapvel_start(TrapVel* tr, float theta0, float thetaf, float T, float ramp_time, float velocity, float dt);
+void trapvel_start(TrapVel* tr, float theta0, float thetaf, float ramp_time, float velocity, float dt);
 bool trapvel_step(TrapVel* tr, float* theta, float* theta_dot, float* theta_ddot);
 float smooth_sign(float v, float v0);
 float friction_ff(float v_des, float b_visc, float tau_breakaway, float v0);

@@ -167,7 +167,7 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		{
 			m_traj->new_traj_req = false;
 			float dt = DT * m_traj->t_mult;
-			trapvel_start(&(m_traj->trap_traj), m_cmd->des_pos, m_traj->theta_target, m_traj->time_to_targ, m_traj->ramp_time, m_traj->travel_vel, dt);
+			trapvel_start(&(m_traj->trap_traj), m_cmd->des_pos, m_traj->theta_target, m_traj->ramp_time, m_traj->travel_vel, dt);
 			m_traj->traj_cmplt = m_traj->jerk_traj.active;
 		}
 		else if (m_traj->trap_traj.active == true)
@@ -458,20 +458,35 @@ static void abort_logchirp(MotorTrajectory* m_traj, MotorCommand* m_cmd, ChirpAb
 	m_cmd->new_cont = 0;
 }
 
-void trapvel_start(TrapVel* tr, float theta0, float thetaf, float T, float ramp_time, float velocity, float dt)
+void trapvel_start(TrapVel* tr, float theta0, float thetaf, float ramp_time, float velocity, float dt)
 {
-	if (T <= ramp_time * 2.0f)
-	{
-		ramp_time = T / 2; // truncate the ramp time if they are larger than the trajectory length
-	}
-
 	tr->theta0 = theta0;
-	tr->thetaf = thetaf;
-	tr->T = (T > 1e-6F) ? T : 1e-6F;
+	tr->thetaf = theta0; // Hold the start if parameters are invalid.
+	tr->T = 0.0f;
 	tr->t = 0.0F;
 	tr->dt = dt;
-	tr->ramp_t = (ramp_time > 1e-6f) ? ramp_time : 1e-6f;
-	tr->vel = velocity;
+	tr->ramp_t = ramp_time;
+	tr->vel = 0.0f;
+	tr->active = false;
+
+	if (!isfinite(theta0) || !isfinite(thetaf) || !isfinite(velocity) ||
+		!isfinite(ramp_time) || !isfinite(dt) || ramp_time <= 0.0f || dt <= 0.0f)
+	{
+		return;
+	}
+
+	const float distance = fabsf(thetaf - theta0);
+	float speed = fabsf(velocity); // Speed in rad/s; direction comes from the endpoints.
+	if (distance == 0.0f || speed == 0.0f){return;}
+
+	// Keep the ramp duration; short moves have a triangular velocity profile.
+	speed = fminf(speed, distance / ramp_time);
+	float T = distance / speed + ramp_time; // Supplied total duration is unused.
+	if (!isfinite(T) || !isfinite(speed / ramp_time) || speed <= 0.0f){return;}
+
+	tr->thetaf = thetaf;
+	tr->T = T;
+	tr->vel = (thetaf > theta0) ? speed : -speed;
 	tr->active = true;
 
 
@@ -521,15 +536,16 @@ bool trapvel_step(TrapVel* tr, float* theta, float* theta_dot, float* theta_ddot
 	}
 	else if (t >= ta && t < tb)
 	{
-		p = tr->theta0 + tr->vel * (t - 0.5 * tr->ramp_t);
+		p = tr->theta0 + tr->vel * (t - 0.5f * tr->ramp_t);
 		v = tr->vel;
 		a = 0.0f;
 	}
 	else
 	{
-		const float remaining = T - t;
-		p = tr->thetaf - 0.5f * a_accel * remaining * remaining;
-		v = a_accel * remaining;
+		const float elapsed = t - tb;
+		const float tb_p = tr->theta0 + 0.5f * ta * tr->vel + tr->vel * (tb - ta);
+		p = tb_p + tr->vel * elapsed + 0.5f * b_accel * elapsed * elapsed;
+		v = tr->vel + b_accel * elapsed;
 		a = b_accel;
 	}
 
@@ -539,11 +555,8 @@ bool trapvel_step(TrapVel* tr, float* theta, float* theta_dot, float* theta_ddot
 	if (theta_dot) *theta_dot = v;
 	if (theta_ddot) *theta_ddot = a;
 
-	// Advance time
-	tr->t += tr->dt;
-
-	// Finish?
-	if (tr->t >= tr->T + 0.5f * tr->dt)
+	// Finish using the time of this sample, before advancing the clock.
+	if (t >= T)
 	{
 		tr->active = false;
 
@@ -554,6 +567,9 @@ bool trapvel_step(TrapVel* tr, float* theta, float* theta_dot, float* theta_ddot
 
 		return false;
 	}
+
+	// Ensure the next sample cannot skip past the endpoint.
+	tr->t = fminf(t + tr->dt, T);
 
 	return true;
 
