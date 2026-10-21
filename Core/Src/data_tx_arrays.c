@@ -142,16 +142,16 @@ bool data_tx_arrays_init(void)
 //	};
 
 	// This is a higher frequency M2 Encoder Bluetooth Packet
-	static const uint8_t* const data_sources[] = {
-		m2_encoder_pos, m2_pos,
-		frame, tx_dropped, high_water_mark, failures
-	};
-
+//	static const uint8_t* const data_sources[] = {
+//		m2_encoder_pos, m2_pos,
+//		frame, tx_dropped, high_water_mark, failures
+//	};
+//
 //	// Create the length key
-	static const uint16_t length_key[] = {
-		4, 4,
-		1, 4, 2, 4
-	};
+//	static const uint16_t length_key[] = {
+//		4, 4,
+//		1, 4, 2, 4
+//	};
 
 	// Field order is the existing telemetry payload. Keep these tables together.
 //	static const uint8_t* const data_sources[] = {
@@ -200,17 +200,17 @@ bool data_tx_arrays_init(void)
 //	};
 
 	// M2_Encoder_Packet
-//	static const uint8_t* const data_sources[] = {
-//		exo_busy, exo_fsm, exo_debug,
-//		m2_encoder_pos, m2_pos, m2_des, m2_vel, m2_ic_des, m2_kp, m2_kd, m2_tau_ff, m2_mode, m2_traj_status,
-//		frame, tx_dropped, high_water_mark, failures
-//	};
-//
-//	static const uint16_t length_key[] = {
-//		1, 1, 1,
-//		4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
-//		1, 4, 2, 4
-//	};
+	static const uint8_t* const data_sources[] = {
+		exo_busy, exo_fsm, exo_debug,
+		m2_encoder_pos, m2_pos, m2_des, m2_vel, m2_ic_des, m2_kp, m2_kd, m2_tau_ff, m2_mode, m2_traj_status,
+		frame, tx_dropped, high_water_mark, failures
+	};
+
+	static const uint16_t length_key[] = {
+		1, 1, 1,
+		4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
+		1, 4, 2, 4
+	};
 
 
 	// Check to ensure that the data packet is valid at compile time.

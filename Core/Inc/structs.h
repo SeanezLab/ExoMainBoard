@@ -46,7 +46,7 @@ extern VibroCommand vibro_cmd;
 extern FSMStruct state;
 
 // Hardware Configs (This should maybe have it's own header file)
-#define UART_PORT 1U// 1 is default for BT, 2 is via the virtual com port.
+#define UART_PORT 2U// 1 is default for BT, 2 is via the virtual com port.
 
 
 #endif /* INC_STRUCTS_H_ */

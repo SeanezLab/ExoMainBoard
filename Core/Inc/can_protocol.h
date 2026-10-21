@@ -4,8 +4,11 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <math.h>
 
 #define CAN_MODE_SHIFT 5U
+#define CAN_COGGING_GAIN_MAX 5.0f
+#define CAN_COGGING_VERSION 2U
 #define CAN_MOTOR_ID_MAX 31U
 #define CAN_QUERY_BYTES 1U
 #define CAN_COMMAND_BYTES 8U
@@ -25,6 +28,7 @@ typedef enum{
 	CAN_COMMAND_CHARACTERIZATION = 3,
 	CAN_QUERY_ENCODER = 4,
 	CAN_COMMAND_ENCODER = 5,
+	CAN_COGGING_CONFIG = 6,
 	CAN_SPECIAL_COMMAND = 7 // Existing FF ... FC/FD/FE special commands
 }CANRequestMode;
 
@@ -75,6 +79,7 @@ static inline bool can_request_length_valid(uint8_t mode, uint32_t length){
 		case CAN_COMMAND:
 		case CAN_COMMAND_CHARACTERIZATION:
 		case CAN_COMMAND_ENCODER:
+		case CAN_COGGING_CONFIG:
 		case CAN_SPECIAL_COMMAND:
 			return length == CAN_COMMAND_BYTES;
 		default:
@@ -116,6 +121,54 @@ static inline float can_decode_characterization_position(uint16_t position){
 	int32_t counts = position;
 	if(counts >= 32768){counts -= 65536;}
 	return (float)counts * CAN_CHARACTERIZATION_P_STEP;
+}
+
+
+// Cogging configuration, mode 6, eight bytes, MSB first:
+// [mode + reserved zeros][gain u16][blend signed16][phase offset u16][version=2, gain range 0..5].
+// Offset is in MOTOR mechanical degrees. Positive means lookup(angle + offset).
+// Configuration never refreshes the normal motion-command watchdog.
+typedef struct {
+    float gain;
+    float blend;
+    uint16_t offset_counts;
+} CANCoggingConfig;
+
+static inline bool can_pack_cogging(uint8_t data[8], float gain, float blend,
+                                    float offset_motor_deg) {
+    if (!isfinite(gain) || gain < 0.0f || gain > CAN_COGGING_GAIN_MAX ||
+        !isfinite(blend) || blend < -1.0f || blend > 1.0f ||
+        !isfinite(offset_motor_deg) || fabsf(offset_motor_deg) > 360.0f) {
+        return false;
+    }
+    uint16_t g = (uint16_t)(gain * (65535.0f / CAN_COGGING_GAIN_MAX) + 0.5f);
+    float scaled_blend = blend * 32767.0f;
+    int32_t b = (int32_t)(scaled_blend + (blend >= 0.0f ? 0.5f : -0.5f));
+    float scaled_offset = offset_motor_deg * (65536.0f / 360.0f);
+    uint16_t offset = (uint16_t)(int32_t)(scaled_offset +
+                                           (scaled_offset >= 0.0f ? 0.5f : -0.5f));
+    data[0] = CAN_COGGING_CONFIG << CAN_MODE_SHIFT;
+    data[1] = g >> 8;
+    data[2] = g;
+    data[3] = (uint16_t)b >> 8;
+    data[4] = (uint16_t)b;
+    data[5] = offset >> 8;
+    data[6] = offset;
+    data[7] = CAN_COGGING_VERSION;
+    return true;
+}
+
+static inline bool can_unpack_cogging(const uint8_t data[8], CANCoggingConfig *config) {
+    if (data[0] != (CAN_COGGING_CONFIG << CAN_MODE_SHIFT) || data[7] != CAN_COGGING_VERSION) {
+        return false;
+    }
+    int32_t blend = ((uint32_t)data[3] << 8) | data[4];
+    if (blend >= 32768) { blend -= 65536; }
+    if (blend == -32768) { return false; }
+    config->gain = (((uint32_t)data[1] << 8) | data[2]) * (CAN_COGGING_GAIN_MAX / 65535.0f);
+    config->blend = blend / 32767.0f;
+    config->offset_counts = ((uint32_t)data[5] << 8) | data[6];
+    return true;
 }
 
 #endif /* INC_CAN_PROTOCOL_H_ */

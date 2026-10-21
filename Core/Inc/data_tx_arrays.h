@@ -18,7 +18,7 @@ extern "C" {
 
 #define DATA_TX_HISTORY_CAPACITY 256U
 #define DATA_TX_BATCH_CAPACITY 32U // Samples per buffer; two buffers alternate on UART
-#define DATA_TX_SENDING_RATE 120.0F // Number of samples to send hz (120 for BT tuning, 63 for standrd bt, 3003 for usb)
+#define DATA_TX_SENDING_RATE 3003.0F // Number of samples to send hz (120 for BT tuning, 63 for standrd bt, 3003 for usb)
 #define SAMPLING_CLOCK_PERIOD 10.0F // Number of microseconds per timer tick.
 #define SAMPLING_PERIOD_TICKS (((1/DATA_TX_SENDING_RATE) * 1000000)/SAMPLING_CLOCK_PERIOD)
 
