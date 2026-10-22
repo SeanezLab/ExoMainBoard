@@ -143,6 +143,7 @@ void handle_m_cmd(MotorCommand* m_cmd, CANTxMessage* m_tx)
 		{
 			return;
 		}
+
 		m_cmd->new_sp_cmd = 0;
         return;
 

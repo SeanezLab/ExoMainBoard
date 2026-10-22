@@ -178,6 +178,7 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		m_cmd->des_tff = 0.0f;
 		m_cmd->new_pos = 1;
 		m_cmd->new_cont = 1;
+		return;
 
 	case TRAJ_LOG_CHIRP: // Torque disturbance around a fixed position reference
 	case TRAJ_POSITION_LOG_CHIRP: // Position excitation around the requested setpoint
@@ -302,6 +303,8 @@ void reset_target_pos(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		m_cmd->des_pos = latest_pos;
 		m_traj->theta_target =  latest_pos;
 	}
+
+	m_cmd->new_cont = 1;
 }
 
 bool logchirp_parameters_valid(float start_freq, float end_freq, float duration,
