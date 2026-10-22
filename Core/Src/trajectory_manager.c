@@ -25,17 +25,12 @@ void motor_trajectory_init(MotorTrajectory* m_traj, uint8_t motor_id)
 	m_traj->traj_mode = 0; //0 is idle
 	m_traj->cmd_idx = 0;
 	memset(m_traj->pos_array, 0, sizeof(m_traj->pos_array));
-	m_traj->t_mult = 5;
+	m_traj->t_mult = 1;
 	m_traj->des_freq = 1;
 	m_traj->theta_target = 0;
 	m_traj->time_to_targ = 10; // In sec
 	m_traj->ramp_time = 0;
 	m_traj->travel_vel = 10; // in deg/sec
-	m_traj->joint_inertia_ff = 0;
-	m_traj->gravity_ff = 0;
-	m_traj->dyn_frct_ff = 0;
-	m_traj->stat_frct_ff = 1.5;
-	m_traj->trans_v_ff = 0.1;
 	m_traj->theta = 0;
 	m_traj->theta_d = 0;
 	m_traj->theta_dd = 0;
@@ -128,10 +123,9 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 			m_traj->traj_cmplt = m_traj->jerk_traj.active;
 		}
 
-		t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
 		m_cmd->des_pos = m_traj->theta;
 		m_cmd->des_v = m_traj->theta_d;
-		m_cmd->des_tff = t_ff;
+		m_cmd->des_tff = 0.0f;
 		m_cmd->new_pos = 1;
 		m_cmd->new_cont = 1;
 		return;
@@ -154,10 +148,9 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 			m_traj->traj_cmplt = m_traj->const_vel_traj.active;
 		}
 
-		t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
 		m_cmd->des_pos = m_traj->theta;
 		m_cmd->des_v = m_traj->theta_d;
-		m_cmd->des_tff = t_ff;
+		m_cmd->des_tff = 0.0f;
 		m_cmd->new_pos = 1;
 		m_cmd->new_cont = 1;
 		return;
@@ -172,7 +165,7 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 		}
 		else if (m_traj->trap_traj.active == true)
 		{
-			constvel_step(&(m_traj->trap_traj), &(m_traj->theta), &(m_traj->theta_d), &(m_traj->theta_dd));
+			trapvel_step(&(m_traj->trap_traj), &(m_traj->theta), &(m_traj->theta_d), &(m_traj->theta_dd));
 			m_traj->traj_cmplt = m_traj->trap_traj.active;
 		}
 		else if (m_traj->trap_traj.active == false)
@@ -180,10 +173,9 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 			m_traj->traj_cmplt = m_traj->trap_traj.active;
 		}
 
-		t_ff = friction_ff(m_traj->theta_d, m_traj->dyn_frct_ff, m_traj->stat_frct_ff, m_traj->trans_v_ff);
 		m_cmd->des_pos = m_traj->theta;
 		m_cmd->des_v = m_traj->theta_d;
-		m_cmd->des_tff = t_ff;
+		m_cmd->des_tff = 0.0f;
 		m_cmd->new_pos = 1;
 		m_cmd->new_cont = 1;
 

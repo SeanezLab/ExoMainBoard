@@ -92,11 +92,6 @@ typedef struct{
 	float time_to_targ; // In sec;
 	float ramp_time; // in sec, for trapezoidal velocity
 	float travel_vel; // in deg/sec
-	float joint_inertia_ff;
-	float gravity_ff;
-	float dyn_frct_ff; //torque(nm)/(rad/s)
-	float stat_frct_ff;//breakway torque(nm)
-	float trans_v_ff;//smoothing speed/(rad/s)
 	float theta;
 	float theta_d;
 	float theta_dd;
