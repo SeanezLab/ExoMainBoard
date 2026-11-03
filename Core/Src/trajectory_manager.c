@@ -136,7 +136,7 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 			m_traj->new_traj_req = false;
 			float dt = DT * m_traj->t_mult;
 			constvel_start(&(m_traj->const_vel_traj), m_cmd->des_pos, m_traj->theta_target, m_traj->time_to_targ, dt);
-			m_traj->traj_cmplt = m_traj->jerk_traj.active;
+			m_traj->traj_cmplt = m_traj->const_vel_traj.active;
 		}
 		else if (m_traj->const_vel_traj.active == true)
 		{
@@ -161,7 +161,7 @@ void generate_traj_cmd(MotorTrajectory* m_traj, MotorCommand* m_cmd)
 			m_traj->new_traj_req = false;
 			float dt = DT * m_traj->t_mult;
 			trapvel_start(&(m_traj->trap_traj), m_cmd->des_pos, m_traj->theta_target, m_traj->ramp_time, m_traj->travel_vel, dt);
-			m_traj->traj_cmplt = m_traj->jerk_traj.active;
+			m_traj->traj_cmplt = m_traj->trap_traj.active;
 		}
 		else if (m_traj->trap_traj.active == true)
 		{
@@ -472,12 +472,20 @@ void trapvel_start(TrapVel* tr, float theta0, float thetaf, float ramp_time, flo
 
 	const float distance = fabsf(thetaf - theta0);
 	float speed = fabsf(velocity); // Speed in rad/s; direction comes from the endpoints.
-	if (distance == 0.0f || speed == 0.0f){return;}
+	if (distance == 0.0f || speed == 0.0f)
+	{
+		tr->active = true;
+		return;
+	}
 
 	// Keep the ramp duration; short moves have a triangular velocity profile.
 	speed = fminf(speed, distance / ramp_time);
 	float T = distance / speed + ramp_time; // Supplied total duration is unused.
-	if (!isfinite(T) || !isfinite(speed / ramp_time) || speed <= 0.0f){return;}
+	if (!isfinite(T) || !isfinite(speed / ramp_time) || speed <= 0.0f)
+	{
+		tr->active = true;
+		return;
+	}
 
 	tr->thetaf = thetaf;
 	tr->T = T;
