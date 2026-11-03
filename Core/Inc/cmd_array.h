@@ -51,7 +51,7 @@ typedef struct{
 	float des_kp;
 	float des_kd;
 	float des_tff;
-    float cogging_gain; // 0 disables; [0,5]. M2 only; latched until explicitly changed or rebooted.
+    float cogging_gain; // 0 disables; [0,5]. M1 and M2; latched until explicitly changed or rebooted.
     float cogging_offset_motor_deg; // [-360,360], positive adds to absolute lookup angle.
     uint8_t cogging_last_packet[8];
     bool cogging_packet_valid;

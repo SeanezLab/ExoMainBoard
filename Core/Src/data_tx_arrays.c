@@ -200,9 +200,22 @@ bool data_tx_arrays_init(void)
 //	};
 
 	// M2_Encoder_Packet
+//	static const uint8_t* const data_sources[] = {
+//		exo_busy, exo_fsm, exo_debug,
+//		m2_encoder_pos, m2_pos, m2_des, m2_vel, m2_ic_des, m2_kp, m2_kd, m2_tau_ff, m2_mode, m2_traj_status,
+//		frame, tx_dropped, high_water_mark, failures
+//	};
+//
+//	static const uint16_t length_key[] = {
+//		1, 1, 1,
+//		4, 4, 4, 4, 4, 4, 4, 4, 1, 1,
+//		1, 4, 2, 4
+//	};
+
+	// M1_Encoder_Packet
 	static const uint8_t* const data_sources[] = {
 		exo_busy, exo_fsm, exo_debug,
-		m2_encoder_pos, m2_pos, m2_des, m2_vel, m2_ic_des, m2_kp, m2_kd, m2_tau_ff, m2_mode, m2_traj_status,
+		m1_encoder_pos, m1_pos, m1_des, m1_vel, m1_ic_des, m1_kp, m1_kd, m1_tau_ff, m1_mode, m1_traj_status,
 		frame, tx_dropped, high_water_mark, failures
 	};
 

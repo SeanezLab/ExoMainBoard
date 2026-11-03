@@ -86,16 +86,31 @@ static bool send_m_can(CANTxMessage* m_tx)
 // Send only changed gain/offset/direction blend, or an explicit user resend.
 // There is no periodic refresh; the driver latches the last valid settings.
 static bool send_cogging_config(MotorCommand *m_cmd, CANTxMessage *m_tx) {
-    if (m_cmd->motor_id != 2)
+
+	float gain;
+	float blend;
+	if (m_cmd->motor_id == 2)
     {
-    	return true; // For now, skip the remainder of the command if its not M2
+		gain = m_cmd->cogging_gain;
+		blend = m_cmd->des_v / (0.2f * 3.14159265358979323846f / 180.0f); // Calculate the map blend factor
+		if (!isfinite(blend))
+		{
+			return false;
+		}
     }
-    float gain = m_cmd->cogging_gain;
-    float blend = m_cmd->des_v / (0.2f * 3.14159265358979323846f / 180.0f); // Calculate the map blend factor
-    if (!isfinite(blend))
-    {
-    	return false;
-    }
+	else if (m_cmd->motor_id == 1)
+	{
+		gain = m_cmd->cogging_gain;
+		blend = (m_cmd->des_v * 1) / (0.2f * 3.14159265358979323846f / 180.0f); // Calculate the map blend factor
+		if (!isfinite(blend))
+		{
+			return false;
+		}
+	}
+	else
+	{
+		return true;
+	}
 
     blend = fminf(1.0f, fmaxf(-1.0f, blend)); // Clamp the blend to entirely the positive or negative map.
 

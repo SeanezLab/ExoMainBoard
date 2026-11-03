@@ -402,21 +402,23 @@ void crc_uart_rcv_data(rdg_buf_struct* rdg_struct, uint16_t length)
 		}
         else if (condition == 7)
         {
-            // float[7, motor_id=2, gain, offset_motor_degrees], normal CRC framing.
+            // float[7, motor_id (1 or 2), gain, offset_motor_degrees], normal CRC framing.
             if (payload_length != 4 * sizeof(float)) { return; }
             float values[4];
             memcpy(values, &rdg_struct->buffer[payload_start], sizeof(values));
-            if (values[1] != 2.0f || !isfinite(values[2]) ||
+            if ((values[1] != 1.0f && values[1] != 2.0f) || !isfinite(values[2]) ||
                 values[2] < 0.0f || values[2] > CAN_COGGING_GAIN_MAX || !isfinite(values[3]) ||
                 fabsf(values[3]) > 360.0f) { return; }
+            MotorCommand *motor_cmd = values[1] == 1.0f ? &m1_cmd : &m2_cmd;
+            MotorTrajectory *motor_traj = values[1] == 1.0f ? &m1_traj : &m2_traj;
             if (values[2] > 0.0f && (state.state != COMMAND_MODE ||
-                m2_cmd.des_mode != 1 || m2_cmd.new_sp_cmd ||
-                m2_traj.traj_mode == TRAJ_LOG_CHIRP ||
-                m2_traj.traj_mode == TRAJ_POSITION_LOG_CHIRP)) { return; }
-            m2_cmd.cogging_gain = values[2];
-            m2_cmd.cogging_offset_motor_deg = values[3];
-            m2_cmd.cogging_packet_valid = false; // Explicit resend, even if values are unchanged.
-            m2_cmd.new_cont = 1;
+                motor_cmd->des_mode != 1 || motor_cmd->new_sp_cmd ||
+                motor_traj->traj_mode == TRAJ_LOG_CHIRP ||
+                motor_traj->traj_mode == TRAJ_POSITION_LOG_CHIRP)) { return; }
+            motor_cmd->cogging_gain = values[2];
+            motor_cmd->cogging_offset_motor_deg = values[3];
+            motor_cmd->cogging_packet_valid = false; // Explicit resend, even if values are unchanged.
+            motor_cmd->new_cont = 1;
         }
 		else
 		{
